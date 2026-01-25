@@ -28,13 +28,13 @@ jobs:
             docker run -d \
               --name admin_api \
               --restart unless-stopped \
-              --network nexus_network \
-              -e POSTGRES_HOST=postgres \
+              --network infrastructure_nexus_network \
+              -e POSTGRES_HOST=nexus_postgres \
               -e POSTGRES_PORT=5432 \
               -e POSTGRES_USER=nexus \
               -e POSTGRES_PASSWORD=nexus_secure_pwd_2024 \
               -e POSTGRES_DB=nexus_db \
-              -e REDIS_HOST=redis \
+              -e REDIS_HOST=nexus_redis \
               -e REDIS_PORT=6379 \
               -e JWT_SECRET=super_secret_jwt_key_change_in_production_2024 \
               -e DEBUG=False \
