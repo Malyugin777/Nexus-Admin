@@ -205,7 +205,7 @@ export const Dashboard = () => {
     radius: 0.75,
     innerRadius: 0.5,
     label: {
-      type: 'spider' as const,
+      type: 'outer' as const,
       content: (data: any) => `${data.displayName}\n${data.count}`,
       style: {
         fill: '#fff',
