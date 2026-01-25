@@ -5,7 +5,10 @@ from datetime import datetime
 from typing import Optional, List, Any
 from pydantic import BaseModel, Field, EmailStr
 
-from .models import UserRole, BotStatus, BroadcastStatus, SubscriptionProvider, BillingCycle, SubscriptionStatus
+from .models import (
+    UserRole, BotStatus, BroadcastStatus, SubscriptionProvider, BillingCycle, SubscriptionStatus,
+    VPNPlanType, VPNProtocol, VPNSubscriptionStatus, VPNPaymentStatus, VPNPaymentSystem
+)
 
 
 # ============ Stats ============
@@ -392,3 +395,90 @@ class BotMessageResponse(BotMessageBase):
 class BotMessageListResponse(BaseModel):
     data: List[BotMessageResponse]
     total: int
+
+
+# ============ VPN Subscriptions ============
+
+class VPNSubscriptionBase(BaseModel):
+    plan_type: VPNPlanType
+    protocol: VPNProtocol = VPNProtocol.vless
+    status: VPNSubscriptionStatus = VPNSubscriptionStatus.active
+    traffic_limit_gb: int = 100
+
+
+class VPNSubscriptionCreate(VPNSubscriptionBase):
+    telegram_id: int
+    marzban_username: str
+    subscription_url: Optional[str] = None
+    started_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+
+
+class VPNSubscriptionUpdate(BaseModel):
+    status: Optional[VPNSubscriptionStatus] = None
+    traffic_limit_gb: Optional[int] = None
+    expires_at: Optional[datetime] = None
+
+
+class VPNSubscriptionResponse(VPNSubscriptionBase):
+    id: int
+    telegram_id: int
+    marzban_username: str
+    subscription_url: Optional[str]
+    traffic_used_gb: float = 0
+    started_at: Optional[datetime]
+    expires_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+    # Computed fields
+    days_remaining: Optional[int] = None
+    traffic_percent: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VPNSubscriptionListResponse(BaseModel):
+    data: List[VPNSubscriptionResponse]
+    total: int
+
+
+# ============ VPN Payments ============
+
+class VPNPaymentResponse(BaseModel):
+    id: int
+    telegram_id: int
+    amount: int
+    currency: str
+    payment_system: VPNPaymentSystem
+    payment_id: Optional[str]
+    plan_type: VPNPlanType
+    status: VPNPaymentStatus
+    created_at: datetime
+    completed_at: Optional[datetime]
+    # Joined fields
+    subscription_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VPNPaymentListResponse(BaseModel):
+    data: List[VPNPaymentResponse]
+    total: int
+
+
+# ============ VPN Stats ============
+
+class VPNStatsResponse(BaseModel):
+    active_subscriptions: int
+    total_subscriptions: int
+    expiring_soon: int  # Within 3 days
+    new_today: int
+    total_revenue_stars: int
+    total_revenue_rub: int
+    total_payments: int
+    # By plan breakdown
+    by_plan: dict = {}
+    # By protocol breakdown
+    by_protocol: dict = {}

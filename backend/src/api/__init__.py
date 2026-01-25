@@ -14,6 +14,7 @@ from .bot_messages import router as bot_messages_router
 from .ops import router as ops_router
 from .flyer_webhook import router as flyer_webhook_router
 from .export import router as export_router
+from .vpn import router as vpn_router
 
 api_router = APIRouter()
 
@@ -30,3 +31,4 @@ api_router.include_router(bot_messages_router, prefix="/bot-messages", tags=["bo
 api_router.include_router(ops_router, prefix="/ops", tags=["ops"])
 api_router.include_router(flyer_webhook_router, prefix="/flyer-webhook", tags=["flyer"])
 api_router.include_router(export_router, prefix="/export", tags=["export"])
+api_router.include_router(vpn_router, prefix="/vpn", tags=["vpn"])

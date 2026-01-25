@@ -15,7 +15,7 @@ jobs:
         with:
           host: ${{ secrets.AEZA_HOST }}
           username: ${{ secrets.AEZA_USER }}
-          password: ${{ secrets.AEZA_PASSWORD }}
+          key: ${{ secrets.AEZA_KEY }}
           script: |
             cd /root/nexus-admin
             git pull origin main

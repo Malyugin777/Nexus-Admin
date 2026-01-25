@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import (
     Column, Integer, BigInteger, String, DateTime,
-    Boolean, Text, Enum, ForeignKey, Index, JSON, Float, UniqueConstraint
+    Boolean, Text, Enum, ForeignKey, Index, JSON, Float, UniqueConstraint, Numeric
 )
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
@@ -296,3 +296,119 @@ class BotMessage(Base):
 
     # Relationship
     bot = relationship("Bot", backref="messages")
+
+
+# =============================================================================
+# VPN Models
+# =============================================================================
+
+class VPNPlanType(str, PyEnum):
+    """VPN subscription plan types."""
+    month_1 = "month_1"
+    month_3 = "month_3"
+    year_1 = "year_1"
+
+
+class VPNProtocol(str, PyEnum):
+    """VPN protocol types."""
+    vless = "vless"
+    shadowsocks = "shadowsocks"
+
+
+class VPNSubscriptionStatus(str, PyEnum):
+    """VPN subscription status."""
+    pending = "pending"
+    active = "active"
+    expired = "expired"
+    cancelled = "cancelled"
+
+
+class VPNPaymentStatus(str, PyEnum):
+    """VPN payment status."""
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+    refunded = "refunded"
+
+
+class VPNPaymentSystem(str, PyEnum):
+    """VPN payment system."""
+    telegram_stars = "telegram_stars"
+    yookassa = "yookassa"
+
+
+class VPNSubscription(Base):
+    """VPN subscription model."""
+    __tablename__ = "vpn_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    telegram_id = Column(BigInteger, nullable=False, index=True)
+
+    # Plan info
+    plan_type = Column(Enum(VPNPlanType), nullable=False)
+    protocol = Column(Enum(VPNProtocol), default=VPNProtocol.vless)
+    status = Column(Enum(VPNSubscriptionStatus), default=VPNSubscriptionStatus.pending)
+
+    # Marzban integration
+    marzban_username = Column(String(255), unique=True, nullable=False)
+    subscription_url = Column(Text, nullable=True)
+    traffic_limit_gb = Column(Integer, default=100)
+    traffic_used_gb = Column(Numeric(10, 2), default=0)
+
+    # Dates
+    started_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", backref="vpn_subscriptions")
+    payments = relationship("VPNPayment", back_populates="subscription")
+
+
+class VPNPayment(Base):
+    """VPN payment model."""
+    __tablename__ = "vpn_payments"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    subscription_id = Column(Integer, ForeignKey("vpn_subscriptions.id", ondelete="SET NULL"), nullable=True)
+    telegram_id = Column(BigInteger, nullable=False, index=True)
+
+    # Payment info
+    amount = Column(Integer, nullable=False)  # In smallest units (kopeks/stars)
+    currency = Column(String(10), default="XTR")  # XTR = Telegram Stars
+    payment_system = Column(Enum(VPNPaymentSystem), nullable=False)
+    payment_id = Column(String(255), nullable=True)  # External payment ID
+
+    # Plan info
+    plan_type = Column(Enum(VPNPlanType), nullable=False)
+    status = Column(Enum(VPNPaymentStatus), default=VPNPaymentStatus.pending)
+
+    # Dates
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    user = relationship("User", backref="vpn_payments")
+    subscription = relationship("VPNSubscription", back_populates="payments")
+
+
+class VPNReferral(Base):
+    """VPN referral model."""
+    __tablename__ = "vpn_referrals"
+
+    id = Column(Integer, primary_key=True)
+    referrer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    referred_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # Earnings
+    total_earned_stars = Column(Integer, default=0)
+
+    # Dates
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    referrer = relationship("User", foreign_keys=[referrer_id], backref="referrals_made")
+    referred = relationship("User", foreign_keys=[referred_id])

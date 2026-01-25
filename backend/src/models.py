@@ -11,6 +11,12 @@ from src.models_db import (
     BillingCycle,
     SubscriptionStatus,
     APISource,
+    # VPN Enums
+    VPNPlanType,
+    VPNProtocol,
+    VPNSubscriptionStatus,
+    VPNPaymentStatus,
+    VPNPaymentSystem,
 
     # Models
     Base,
@@ -25,6 +31,10 @@ from src.models_db import (
     BroadcastLog,
     Segment,
     BotMessage,
+    # VPN Models
+    VPNSubscription,
+    VPNPayment,
+    VPNReferral,
 )
 
 __all__ = [
@@ -36,6 +46,12 @@ __all__ = [
     'BillingCycle',
     'SubscriptionStatus',
     'APISource',
+    # VPN Enums
+    'VPNPlanType',
+    'VPNProtocol',
+    'VPNSubscriptionStatus',
+    'VPNPaymentStatus',
+    'VPNPaymentSystem',
 
     # Models
     'Base',
@@ -50,4 +66,8 @@ __all__ = [
     'BroadcastLog',
     'Segment',
     'BotMessage',
+    # VPN Models
+    'VPNSubscription',
+    'VPNPayment',
+    'VPNReferral',
 ]
