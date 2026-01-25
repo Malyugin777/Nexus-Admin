@@ -129,6 +129,7 @@ interface ProviderConfig {
   name: string;
   enabled: boolean;
   timeout_sec: number;
+  connect_sec: number;
 }
 
 interface RoutingConfig {
@@ -141,6 +142,28 @@ interface RoutingConfig {
 
 interface RoutingListResponse {
   sources: RoutingConfig[];
+}
+
+// Fallbacks types
+interface FallbackEntry {
+  id: number;
+  provider: string;
+  platform: string;
+  reason: string;
+  url: string | null;
+  created_at: string;
+}
+
+interface FallbackStats {
+  provider: string;
+  total: number;
+  top_reasons: Record<string, number>;
+}
+
+interface FallbacksResponse {
+  entries: FallbackEntry[];
+  stats: FallbackStats[];
+  total: number;
 }
 
 // Human-readable source names
@@ -331,6 +354,14 @@ export const Ops = () => {
     queryOptions: { queryKey: ['ops-routing', refreshKey] },
   });
 
+  // Fallbacks data
+  const [fallbackPeriod, setFallbackPeriod] = useState<string>('24h');
+  const { data: fallbacksData, isLoading: fallbacksLoading, refetch: refetchFallbacks } = useCustom<FallbacksResponse>({
+    url: `/ops/fallbacks?period=${fallbackPeriod}`,
+    method: 'get',
+    queryOptions: { queryKey: ['ops-fallbacks', refreshKey, fallbackPeriod] },
+  });
+
   // State for routing editor
   const [selectedSource, setSelectedSource] = useState<string>('youtube_full');
   const [editedChain, setEditedChain] = useState<ProviderConfig[] | null>(null);
@@ -341,6 +372,9 @@ export const Ops = () => {
   const quotas = quotaData?.data?.apis || [];
   const system = systemData?.data?.metrics;
   const routingSources = routingData?.data?.sources || [];
+  const fallbackEntries = fallbacksData?.data?.entries || [];
+  const fallbackStats = fallbacksData?.data?.stats || [];
+  const fallbackTotal = fallbacksData?.data?.total || 0;
 
   // Calculate KPIs
   const totalSuccess = platforms.reduce((sum, p) => sum + p.success, 0);
@@ -1221,6 +1255,11 @@ export const Ops = () => {
                             <Tag color={PROVIDER_COLORS[provider.name] || 'default'} style={{ fontSize: '13px' }}>
                               {PROVIDER_LABELS[provider.name] || provider.name}
                             </Tag>
+                            <Tooltip title="Ping / Download timeout">
+                              <span style={{ marginLeft: '12px', fontSize: '11px', color: '#6b7280' }}>
+                                {provider.connect_sec || 5}s / {provider.timeout_sec}s
+                              </span>
+                            </Tooltip>
                             <div style={{ flex: 1 }} />
                             <Switch
                               size="small"
@@ -1270,6 +1309,120 @@ export const Ops = () => {
                           <b style={{ color: '#52c41a' }}>Совет:</b> Если YouTube банит — поставь SaveNow первым.
                         </div>
                       </Card>
+                    </Col>
+                  </Row>
+                )}
+              </Card>
+            ),
+          },
+          {
+            key: 'fallbacks',
+            label: (
+              <span>
+                <WarningOutlined /> Fallbacks {fallbackTotal > 0 && <Badge count={fallbackTotal} size="small" style={{ marginLeft: 4 }} />}
+              </span>
+            ),
+            children: (
+              <Card
+                title={
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Логи переключений провайдеров</span>
+                    <div>
+                      <Segmented
+                        size="small"
+                        options={[
+                          { label: '24ч', value: '24h' },
+                          { label: '7д', value: '7d' },
+                          { label: '30д', value: '30d' },
+                        ]}
+                        value={fallbackPeriod}
+                        onChange={(val) => setFallbackPeriod(val as string)}
+                        style={{ marginRight: 8 }}
+                      />
+                      <Button
+                        size="small"
+                        icon={<ReloadOutlined />}
+                        onClick={() => refetchFallbacks()}
+                      />
+                    </div>
+                  </div>
+                }
+                style={{ backgroundColor: '#1f1f1f', borderColor: '#303030' }}
+                styles={{ header: { borderColor: '#303030' } }}
+              >
+                {fallbacksLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px' }}><Spin /></div>
+                ) : (
+                  <Row gutter={[16, 16]}>
+                    {/* Stats cards */}
+                    <Col span={24}>
+                      <Row gutter={[16, 16]}>
+                        {fallbackStats.map(stat => (
+                          <Col key={stat.provider} xs={12} sm={8} md={6}>
+                            <Card size="small" style={{ backgroundColor: '#141414', borderColor: '#303030' }}>
+                              <Statistic
+                                title={<Tag color={PROVIDER_COLORS[stat.provider] || 'default'}>{PROVIDER_LABELS[stat.provider] || stat.provider}</Tag>}
+                                value={stat.total}
+                                suffix="fallbacks"
+                                valueStyle={{ fontSize: '20px' }}
+                              />
+                              <div style={{ marginTop: 8, fontSize: '11px', color: '#888' }}>
+                                {Object.entries(stat.top_reasons).slice(0, 2).map(([reason, count]) => (
+                                  <div key={reason}>{reason}: {count}</div>
+                                ))}
+                              </div>
+                            </Card>
+                          </Col>
+                        ))}
+                      </Row>
+                    </Col>
+
+                    {/* Entries table */}
+                    <Col span={24}>
+                      <Table
+                        dataSource={fallbackEntries}
+                        rowKey="id"
+                        size="small"
+                        pagination={{ pageSize: 20 }}
+                        columns={[
+                          {
+                            title: 'Время',
+                            dataIndex: 'created_at',
+                            width: 140,
+                            render: (val: string) => new Date(val).toLocaleString('ru-RU', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }),
+                          },
+                          {
+                            title: 'Провайдер',
+                            dataIndex: 'provider',
+                            width: 120,
+                            render: (val: string) => (
+                              <Tag color={PROVIDER_COLORS[val] || 'default'}>
+                                {PROVIDER_LABELS[val] || val}
+                              </Tag>
+                            ),
+                          },
+                          {
+                            title: 'Платформа',
+                            dataIndex: 'platform',
+                            width: 100,
+                          },
+                          {
+                            title: 'Причина',
+                            dataIndex: 'reason',
+                            ellipsis: true,
+                            render: (val: string) => (
+                              <Tooltip title={val}>
+                                <span style={{ color: '#ff7875' }}>{val}</span>
+                              </Tooltip>
+                            ),
+                          },
+                        ]}
+                      />
                     </Col>
                   </Row>
                 )}

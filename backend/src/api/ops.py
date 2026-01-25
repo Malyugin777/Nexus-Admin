@@ -763,7 +763,8 @@ class ProviderConfig(BaseModel):
     """Конфиг провайдера в chain"""
     name: str
     enabled: bool = True
-    timeout_sec: int = 60
+    timeout_sec: int = 60      # Download timeout
+    connect_sec: int = 5       # Connection/ping timeout
 
 
 class RoutingConfig(BaseModel):
@@ -811,7 +812,7 @@ async def get_all_routing(
             chain_data = json.loads(chain_json)
         else:
             # Дефолтный chain
-            chain_data = [{"name": p, "enabled": True, "timeout_sec": 60} for p in default_chain]
+            chain_data = [{"name": p, "enabled": True, "timeout_sec": 60, "connect_sec": 5} for p in default_chain]
 
         # Проверяем override
         override_json = await redis.get(f"routing_override:{source}")
@@ -824,7 +825,7 @@ async def get_all_routing(
                 has_override = True
                 override_expires = expires_at
                 # При активном override показываем его chain
-                chain_data = [{"name": p, "enabled": True, "timeout_sec": 60} for p in override_data["chain"]]
+                chain_data = [{"name": p, "enabled": True, "timeout_sec": 60, "connect_sec": 5} for p in override_data["chain"]]
 
         sources.append(RoutingConfig(
             source=source,
@@ -860,7 +861,7 @@ async def get_routing(
     if chain_json:
         chain_data = json.loads(chain_json)
     else:
-        chain_data = [{"name": p, "enabled": True, "timeout_sec": 60} for p in DEFAULT_ROUTING[source]]
+        chain_data = [{"name": p, "enabled": True, "timeout_sec": 60, "connect_sec": 5} for p in DEFAULT_ROUTING[source]]
 
     # Проверяем override
     override_json = await redis.get(f"routing_override:{source}")
@@ -903,7 +904,7 @@ async def save_routing(
     redis = await get_redis()
 
     # Сохраняем chain
-    chain_data = [{"name": p.name, "enabled": p.enabled, "timeout_sec": p.timeout_sec} for p in request.chain]
+    chain_data = [{"name": p.name, "enabled": p.enabled, "timeout_sec": p.timeout_sec, "connect_sec": p.connect_sec} for p in request.chain]
     await redis.set(f"routing:{source}", json.dumps(chain_data))
 
     return {"status": "ok", "source": source, "chain": chain_data}
@@ -985,3 +986,150 @@ async def clear_routing_override(
     await redis.delete(f"routing_override:{source}")
 
     return {"status": "ok", "source": source, "message": "Override cleared"}
+
+
+# ============ Fallbacks API ============
+
+class FallbackEntry(BaseModel):
+    """Одна запись fallback'а"""
+    id: int
+    provider: str
+    platform: str
+    reason: str
+    url: Optional[str] = None
+    created_at: datetime
+
+
+class FallbackStats(BaseModel):
+    """Статистика fallback'ов по провайдеру"""
+    provider: str
+    total: int
+    top_reasons: dict  # {"Timeout (5s)": 10, "HTTP 500": 5}
+
+
+class FallbacksResponse(BaseModel):
+    """Ответ с fallback'ами"""
+    entries: List[FallbackEntry]
+    stats: List[FallbackStats]
+    total: int
+
+
+@router.get("/fallbacks", response_model=FallbacksResponse)
+async def get_fallbacks(
+    period: str = Query("24h", description="Period: 24h, 7d, 30d"),
+    provider: Optional[str] = Query(None, description="Filter by provider"),
+    platform: Optional[str] = Query(None, description="Filter by platform"),
+    limit: int = Query(100, description="Max entries to return"),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """
+    GET /api/v1/ops/fallbacks
+
+    Получить список fallback'ов с фильтрами и статистикой
+    """
+    # Определяем период
+    if period == "24h":
+        since = datetime.utcnow() - timedelta(hours=24)
+    elif period == "7d":
+        since = datetime.utcnow() - timedelta(days=7)
+    elif period == "30d":
+        since = datetime.utcnow() - timedelta(days=30)
+    else:
+        since = datetime.utcnow() - timedelta(hours=24)
+
+    # Базовый запрос
+    conditions = [
+        ActionLog.action == "provider_fallback",
+        ActionLog.created_at >= since
+    ]
+
+    if provider:
+        conditions.append(ActionLog.api_source == provider)
+
+    if platform:
+        conditions.append(ActionLog.details["platform"].astext == platform)
+
+    # Получаем записи
+    query = (
+        select(ActionLog)
+        .where(and_(*conditions))
+        .order_by(ActionLog.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    logs = result.scalars().all()
+
+    entries = []
+    for log in logs:
+        details = log.details or {}
+        entries.append(FallbackEntry(
+            id=log.id,
+            provider=details.get("provider", str(log.api_source) if log.api_source else "unknown"),
+            platform=details.get("platform", "unknown"),
+            reason=details.get("reason", "unknown")[:200],
+            url=details.get("url"),
+            created_at=log.created_at
+        ))
+
+    # Статистика по провайдерам
+    stats_query = (
+        select(
+            ActionLog.api_source,
+            func.count(ActionLog.id).label("total")
+        )
+        .where(and_(
+            ActionLog.action == "provider_fallback",
+            ActionLog.created_at >= since
+        ))
+        .group_by(ActionLog.api_source)
+    )
+    stats_result = await db.execute(stats_query)
+    stats_rows = stats_result.all()
+
+    stats = []
+    for row in stats_rows:
+        provider_name = str(row.api_source) if row.api_source else "unknown"
+
+        # Топ причин для провайдера
+        reasons_query = (
+            select(
+                ActionLog.details["reason"].astext.label("reason"),
+                func.count(ActionLog.id).label("cnt")
+            )
+            .where(and_(
+                ActionLog.action == "provider_fallback",
+                ActionLog.api_source == row.api_source,
+                ActionLog.created_at >= since
+            ))
+            .group_by(ActionLog.details["reason"].astext)
+            .order_by(func.count(ActionLog.id).desc())
+            .limit(5)
+        )
+        reasons_result = await db.execute(reasons_query)
+        reasons_rows = reasons_result.all()
+
+        top_reasons = {r.reason[:50] if r.reason else "unknown": r.cnt for r in reasons_rows}
+
+        stats.append(FallbackStats(
+            provider=provider_name,
+            total=row.total,
+            top_reasons=top_reasons
+        ))
+
+    # Общее количество
+    total_query = (
+        select(func.count(ActionLog.id))
+        .where(and_(
+            ActionLog.action == "provider_fallback",
+            ActionLog.created_at >= since
+        ))
+    )
+    total_result = await db.execute(total_query)
+    total = total_result.scalar() or 0
+
+    return FallbacksResponse(
+        entries=entries,
+        stats=stats,
+        total=total
+    )
