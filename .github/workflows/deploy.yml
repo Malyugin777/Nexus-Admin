@@ -41,9 +41,10 @@ jobs:
               -p 8000:8000 \
               nexus-admin-api
 
-            # Build frontend
+            # Build frontend (with extra memory for large bundle)
             cd ../frontend
             npm ci
+            export NODE_OPTIONS='--max-old-space-size=2048'
             npm run build
             cp -r dist/* /var/www/shadow-api/
 
