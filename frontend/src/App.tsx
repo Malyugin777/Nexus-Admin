@@ -20,6 +20,7 @@ import {
   MonitorOutlined,
   SettingOutlined,
   LogoutOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -37,6 +38,7 @@ import { BotMessageList } from './pages/bot-messages';
 import { Ops } from './pages/ops';
 import { ProfilePage } from './pages/profile';
 import { Login } from './pages/login';
+import { VPNList, VPNEdit, VPNPayments } from './pages/vpn';
 import { LanguageSwitcher, Footer } from './components';
 
 import './i18n';
@@ -144,6 +146,24 @@ function App() {
                 meta: {
                   label: 'Ops',
                   icon: <MonitorOutlined />,
+                },
+              },
+              {
+                name: 'vpn',
+                list: '/vpn',
+                edit: '/vpn/edit/:id',
+                meta: {
+                  label: 'VPN',
+                  icon: <SafetyCertificateOutlined />,
+                },
+              },
+              {
+                name: 'vpn-payments',
+                list: '/vpn/payments',
+                meta: {
+                  label: 'VPN Платежи',
+                  icon: <DollarOutlined />,
+                  parent: 'vpn',
                 },
               },
             ]}
@@ -263,6 +283,12 @@ function App() {
 
                 <Route path="/ops">
                   <Route index element={<Ops />} />
+                </Route>
+
+                <Route path="/vpn">
+                  <Route index element={<VPNList />} />
+                  <Route path="edit/:id" element={<VPNEdit />} />
+                  <Route path="payments" element={<VPNPayments />} />
                 </Route>
 
                 <Route path="/profile" element={<ProfilePage />} />
