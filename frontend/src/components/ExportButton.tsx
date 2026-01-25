@@ -3,7 +3,7 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 
 interface ExportButtonProps {
-  resource: 'users' | 'bots' | 'broadcasts' | 'logs' | 'subscriptions';
+  resource: 'users' | 'bots' | 'broadcasts' | 'logs' | 'subscriptions' | 'vpn/subscriptions' | 'vpn/payments';
   filters?: Record<string, any>;
   label?: string;
 }
