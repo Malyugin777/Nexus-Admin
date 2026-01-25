@@ -1,0 +1,47 @@
+# Docker Compose for local development
+# Production uses docker-compose on Aeza server
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexus_postgres_dev
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_secure_pwd_2024
+      POSTGRES_DB: nexus_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: nexus_redis_dev
+    ports:
+      - "6379:6379"
+
+  admin_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: admin_api_dev
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=nexus
+      - POSTGRES_PASSWORD=nexus_secure_pwd_2024
+      - POSTGRES_DB=nexus_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=dev_secret
+      - DEBUG=True
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend/src:/app/src
+
+volumes:
+  postgres_data:

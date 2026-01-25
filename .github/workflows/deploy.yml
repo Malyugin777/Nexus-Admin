@@ -1,0 +1,50 @@
+name: Deploy Admin Panel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Aeza
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AEZA_HOST }}
+          username: ${{ secrets.AEZA_USER }}
+          password: ${{ secrets.AEZA_PASSWORD }}
+          script: |
+            cd /root/nexus-admin
+            git pull origin main
+
+            # Build and restart backend
+            cd backend
+            docker build -t nexus-admin-api .
+            docker stop admin_api 2>/dev/null || true
+            docker rm admin_api 2>/dev/null || true
+            docker run -d \
+              --name admin_api \
+              --restart unless-stopped \
+              --network nexus_network \
+              -e POSTGRES_HOST=postgres \
+              -e POSTGRES_PORT=5432 \
+              -e POSTGRES_USER=nexus \
+              -e POSTGRES_PASSWORD=nexus_secure_pwd_2024 \
+              -e POSTGRES_DB=nexus_db \
+              -e REDIS_HOST=redis \
+              -e REDIS_PORT=6379 \
+              -e JWT_SECRET=super_secret_jwt_key_change_in_production_2024 \
+              -e DEBUG=False \
+              -p 8000:8000 \
+              nexus-admin-api
+
+            # Build frontend
+            cd ../frontend
+            npm ci
+            npm run build
+            cp -r dist/* /var/www/shadow-api/
+
+            echo "Admin Panel deployed successfully"
