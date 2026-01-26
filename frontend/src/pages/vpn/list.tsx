@@ -101,13 +101,13 @@ export const VPNList = () => {
 
   // Fetch stats
   const { data: statsData, refetch: refetchStats } = useCustom<VPNStats>({
-    url: `${API_URL}/vpn/stats`,
+    url: '/vpn/stats',
     method: 'get',
   });
 
   // Fetch bot balance (Stars)
   const { data: balanceData, refetch: refetchBalance } = useCustom<BotBalance>({
-    url: `${API_URL}/vpn/balance`,
+    url: '/vpn/balance',
     method: 'get',
   });
 
