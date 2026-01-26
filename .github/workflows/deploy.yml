@@ -38,6 +38,9 @@ jobs:
               -e REDIS_PORT=6379 \
               -e JWT_SECRET=super_secret_jwt_key_change_in_production_2024 \
               -e VPN_BOT_TOKEN=${{ secrets.VPN_BOT_TOKEN }} \
+              -e MARZBAN_URL=${{ secrets.MARZBAN_URL }} \
+              -e MARZBAN_USERNAME=${{ secrets.MARZBAN_USERNAME }} \
+              -e MARZBAN_PASSWORD=${{ secrets.MARZBAN_PASSWORD }} \
               -e DEBUG=False \
               -p 8000:8000 \
               nexus-admin-api
