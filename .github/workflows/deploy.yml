@@ -37,6 +37,7 @@ jobs:
               -e REDIS_HOST=nexus_redis \
               -e REDIS_PORT=6379 \
               -e JWT_SECRET=super_secret_jwt_key_change_in_production_2024 \
+              -e VPN_BOT_TOKEN=${{ secrets.VPN_BOT_TOKEN }} \
               -e DEBUG=False \
               -p 8000:8000 \
               nexus-admin-api
