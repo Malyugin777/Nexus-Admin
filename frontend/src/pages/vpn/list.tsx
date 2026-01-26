@@ -20,6 +20,7 @@ import {
   HistoryOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ExportButton } from '../../components';
 
@@ -416,13 +417,21 @@ export const VPNList = () => {
           dataIndex="telegram_id"
           title="Telegram ID"
           render={(value: number) => (
-            <a
-              href={`https://t.me/user?id=${value}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {value}
-            </a>
+            <Space>
+              <Link to={`/vpn/users/${value}`} style={{ fontWeight: 500 }}>
+                {value}
+              </Link>
+              <Tooltip title="Открыть в Telegram">
+                <a
+                  href={`https://t.me/user?id=${value}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#888', fontSize: 12 }}
+                >
+                  <UserOutlined />
+                </a>
+              </Tooltip>
+            </Space>
           )}
         />
         <Table.Column

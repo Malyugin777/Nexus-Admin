@@ -500,3 +500,90 @@ async def get_vpn_star_transactions(
             })
 
         return {"transactions": result, "total": len(result)}
+
+
+# ============= User Profile =============
+
+@router.get("/users/{telegram_id}")
+async def get_vpn_user_profile(
+    telegram_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Get VPN user profile with all subscriptions and payments."""
+    # Get all subscriptions for this user
+    subs_result = await db.execute(
+        select(VPNSubscription)
+        .where(VPNSubscription.telegram_id == telegram_id)
+        .order_by(VPNSubscription.created_at.desc())
+    )
+    subscriptions = subs_result.scalars().all()
+
+    # Get all payments for this user
+    payments_result = await db.execute(
+        select(VPNPayment)
+        .where(VPNPayment.telegram_id == telegram_id)
+        .order_by(VPNPayment.created_at.desc())
+    )
+    payments = payments_result.scalars().all()
+
+    # Calculate stats
+    total_spent_stars = sum(p.amount for p in payments if p.status == VPNPaymentStatus.completed)
+    active_subscription = next(
+        (s for s in subscriptions if s.status == VPNSubscriptionStatus.active),
+        None
+    )
+
+    # Format subscriptions
+    subs_data = [
+        VPNSubscriptionResponse(
+            id=sub.id,
+            telegram_id=sub.telegram_id,
+            plan_type=sub.plan_type,
+            protocol=sub.protocol,
+            status=sub.status,
+            marzban_username=sub.marzban_username,
+            subscription_url=sub.subscription_url,
+            traffic_limit_gb=sub.traffic_limit_gb,
+            traffic_used_gb=float(sub.traffic_used_gb or 0),
+            started_at=sub.started_at,
+            expires_at=sub.expires_at,
+            created_at=sub.created_at,
+            updated_at=sub.updated_at,
+            days_remaining=calculate_days_remaining(sub.expires_at),
+            traffic_percent=calculate_traffic_percent(
+                float(sub.traffic_used_gb or 0), sub.traffic_limit_gb
+            ),
+        )
+        for sub in subscriptions
+    ]
+
+    # Format payments
+    payments_data = [
+        VPNPaymentResponse(
+            id=p.id,
+            telegram_id=p.telegram_id,
+            amount=p.amount,
+            currency=p.currency,
+            payment_system=p.payment_system,
+            payment_id=p.payment_id,
+            plan_type=p.plan_type,
+            status=p.status,
+            created_at=p.created_at,
+            completed_at=p.completed_at,
+            subscription_id=p.subscription_id,
+        )
+        for p in payments
+    ]
+
+    return {
+        "telegram_id": telegram_id,
+        "total_subscriptions": len(subscriptions),
+        "total_payments": len(payments),
+        "total_spent_stars": total_spent_stars,
+        "total_spent_rub": total_spent_stars * 2,
+        "has_active_subscription": active_subscription is not None,
+        "active_subscription": subs_data[0] if active_subscription else None,
+        "subscriptions": subs_data,
+        "payments": payments_data,
+    }

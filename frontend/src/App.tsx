@@ -38,7 +38,7 @@ import { BotMessageList } from './pages/bot-messages';
 import { Ops } from './pages/ops';
 import { ProfilePage } from './pages/profile';
 import { Login } from './pages/login';
-import { VPNList, VPNEdit, VPNPayments } from './pages/vpn';
+import { VPNList, VPNEdit, VPNPayments, VPNUserProfile } from './pages/vpn';
 import { LanguageSwitcher, Footer } from './components';
 
 import './i18n';
@@ -289,6 +289,7 @@ function App() {
                   <Route index element={<VPNList />} />
                   <Route path="edit/:id" element={<VPNEdit />} />
                   <Route path="payments" element={<VPNPayments />} />
+                  <Route path="users/:id" element={<VPNUserProfile />} />
                 </Route>
 
                 <Route path="/profile" element={<ProfilePage />} />
