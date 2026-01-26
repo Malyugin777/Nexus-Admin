@@ -45,7 +45,7 @@ jobs:
             # Build frontend (with extra memory for large bundle)
             cd ../frontend
             npm ci
-            export NODE_OPTIONS='--max-old-space-size=2048'
+            export NODE_OPTIONS='--max-old-space-size=3072'
             npm run build
             cp -r dist/* /var/www/shadow-api/
 
