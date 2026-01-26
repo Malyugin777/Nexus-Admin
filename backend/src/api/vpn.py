@@ -423,3 +423,80 @@ async def list_vpn_payments(
     ]
 
     return VPNPaymentListResponse(data=data, total=total)
+
+
+# ============= Telegram Stars API =============
+
+import httpx
+from ..config import settings
+
+
+@router.get("/balance")
+async def get_vpn_bot_balance(
+    _=Depends(get_current_user),
+):
+    """Get VPN bot's Telegram Stars balance."""
+    if not settings.vpn_bot_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="VPN bot token not configured",
+        )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.telegram.org/bot{settings.vpn_bot_token}/getMyStarBalance"
+        )
+        data = response.json()
+
+        if not data.get("ok"):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Telegram API error: {data.get('description', 'Unknown error')}",
+            )
+
+        return {
+            "balance": data["result"]["amount"],
+            "balance_rub": data["result"]["amount"] * 2,  # ~2 RUB per star
+        }
+
+
+@router.get("/transactions")
+async def get_vpn_star_transactions(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    _=Depends(get_current_user),
+):
+    """Get VPN bot's Telegram Stars transactions."""
+    if not settings.vpn_bot_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="VPN bot token not configured",
+        )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://api.telegram.org/bot{settings.vpn_bot_token}/getStarTransactions",
+            params={"offset": offset, "limit": limit},
+        )
+        data = response.json()
+
+        if not data.get("ok"):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Telegram API error: {data.get('description', 'Unknown error')}",
+            )
+
+        transactions = data["result"].get("transactions", [])
+
+        # Transform transactions for frontend
+        result = []
+        for txn in transactions:
+            result.append({
+                "id": txn.get("id"),
+                "amount": txn.get("amount", 0),
+                "date": txn.get("date"),
+                "source": txn.get("source"),
+                "receiver": txn.get("receiver"),
+            })
+
+        return {"transactions": result, "total": len(result)}

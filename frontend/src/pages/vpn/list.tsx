@@ -15,6 +15,8 @@ import {
   WifiOutlined,
   StopOutlined,
   PlusOutlined,
+  StarOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import dayjs from 'dayjs';
@@ -48,6 +50,11 @@ interface VPNStats {
   total_payments: number;
   by_plan: Record<string, { count: number; revenue_stars: number }>;
   by_protocol: Record<string, number>;
+}
+
+interface BotBalance {
+  balance: number;
+  balance_rub: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -98,7 +105,14 @@ export const VPNList = () => {
     method: 'get',
   });
 
+  // Fetch bot balance (Stars)
+  const { data: balanceData, refetch: refetchBalance } = useCustom<BotBalance>({
+    url: `${API_URL}/vpn/balance`,
+    method: 'get',
+  });
+
   const stats = statsData?.data;
+  const balance = balanceData?.data;
 
   const handleDisable = async (id: number) => {
     try {
@@ -154,6 +168,7 @@ export const VPNList = () => {
             onClick={() => {
               tableQueryResult.refetch();
               refetchStats();
+              refetchBalance();
             }}
           >
             Обновить
@@ -162,6 +177,51 @@ export const VPNList = () => {
         </Space>
       )}
     >
+      {/* Bot Balance Card */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={12}>
+          <Card
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+            }}
+          >
+            <Row gutter={16} align="middle">
+              <Col span={12}>
+                <Statistic
+                  title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Баланс бота (Stars)</span>}
+                  value={balance?.balance ?? '—'}
+                  prefix={<StarOutlined style={{ color: '#ffd700' }} />}
+                  suffix="⭐"
+                  valueStyle={{ color: '#fff', fontSize: 32 }}
+                />
+              </Col>
+              <Col span={12}>
+                <Statistic
+                  title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>≈ в рублях</span>}
+                  value={balance?.balance_rub ?? '—'}
+                  prefix={<WalletOutlined style={{ color: '#52c41a' }} />}
+                  suffix="₽"
+                  valueStyle={{ color: '#fff', fontSize: 32 }}
+                />
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ color: '#888', marginBottom: 8 }}>Информация о выводе</div>
+            <div style={{ fontSize: 13 }}>
+              Звёзды можно вывести через <a href="https://fragment.com" target="_blank" rel="noopener noreferrer">Fragment</a> в TON.
+              <br />
+              Минимум для вывода: <strong>1000 ⭐</strong>
+              <br />
+              Курс: ~2 руб / звезда (минус комиссия ~30%)
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
       {/* Stats Cards */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>

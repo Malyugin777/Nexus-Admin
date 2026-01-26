@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     debug: bool = True
 
+    # VPN Bot (for Telegram Stars API)
+    vpn_bot_token: str = ""
+
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",
