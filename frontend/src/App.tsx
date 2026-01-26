@@ -153,7 +153,7 @@ function App() {
                 list: '/vpn',
                 edit: '/vpn/edit/:id',
                 meta: {
-                  label: 'VPN',
+                  label: 'VPN Подписки',
                   icon: <SafetyCertificateOutlined />,
                 },
               },
@@ -163,7 +163,7 @@ function App() {
                 meta: {
                   label: 'VPN Платежи',
                   icon: <DollarOutlined />,
-                  parent: 'vpn',
+                  
                 },
               },
             ]}
