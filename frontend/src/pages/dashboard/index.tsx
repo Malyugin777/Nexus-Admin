@@ -204,15 +204,7 @@ export const Dashboard = () => {
     colorField: 'name',
     radius: 0.75,
     innerRadius: 0.5,
-    label: {
-      type: 'outer' as const,
-      content: (data: any) => `${data.displayName}\n${data.count}`,
-      style: {
-        fill: '#fff',
-        fontSize: 13,
-        fontWeight: 500,
-      },
-    },
+    label: false,
     color: (datum: { name: string }) => platformColors[datum.name] || '#888',
     theme: 'dark',
     legend: false,  // Убираем легенду, все видно в лейблах
