@@ -414,6 +414,13 @@ class VPNSubscriptionCreate(VPNSubscriptionBase):
     expires_at: Optional[datetime] = None
 
 
+class VPNSubscriptionManualCreate(BaseModel):
+    """Schema for manual subscription creation from admin panel."""
+    telegram_id: int
+    plan_type: VPNPlanType
+    protocol: VPNProtocol = VPNProtocol.vless
+
+
 class VPNSubscriptionUpdate(BaseModel):
     status: Optional[VPNSubscriptionStatus] = None
     traffic_limit_gb: Optional[int] = None

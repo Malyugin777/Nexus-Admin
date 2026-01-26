@@ -17,10 +17,12 @@ from ..schemas import (
     VPNSubscriptionResponse,
     VPNSubscriptionListResponse,
     VPNSubscriptionUpdate,
+    VPNSubscriptionManualCreate,
     VPNPaymentResponse,
     VPNPaymentListResponse,
     VPNStatsResponse,
 )
+from ..marzban_api import marzban_api, MarzbanAPIError
 from ..auth import get_current_user
 
 router = APIRouter()
@@ -30,6 +32,13 @@ PLAN_PRICES = {
     VPNPlanType.month_1: {"stars": 60, "rub": 120},
     VPNPlanType.month_3: {"stars": 150, "rub": 300},
     VPNPlanType.year_1: {"stars": 500, "rub": 999},
+}
+
+# Plan configuration (days and traffic)
+PLAN_CONFIG = {
+    VPNPlanType.month_1: {"days": 30, "traffic_gb": 100},
+    VPNPlanType.month_3: {"days": 90, "traffic_gb": 300},
+    VPNPlanType.year_1: {"days": 365, "traffic_gb": 0},  # 0 = unlimited
 }
 
 
@@ -192,6 +201,93 @@ async def list_vpn_subscriptions(
         ))
 
     return VPNSubscriptionListResponse(data=data, total=total)
+
+
+@router.post("/subscriptions/create", response_model=VPNSubscriptionResponse)
+async def create_vpn_subscription_manual(
+    data: VPNSubscriptionManualCreate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """
+    Manually create a VPN subscription from admin panel.
+    Creates user in Marzban and saves subscription to database.
+    """
+    # Check if Marzban is configured
+    if not marzban_api.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marzban API not configured. Please set MARZBAN_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD.",
+        )
+
+    # Get plan configuration
+    plan_config = PLAN_CONFIG.get(data.plan_type)
+    if not plan_config:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid plan type: {data.plan_type}",
+        )
+
+    # Generate unique Marzban username
+    timestamp = int(datetime.utcnow().timestamp())
+    marzban_username = f"vpn_{data.telegram_id}_{timestamp}"
+
+    try:
+        # Create user in Marzban
+        marzban_user = await marzban_api.create_user(
+            username=marzban_username,
+            data_limit_gb=plan_config["traffic_gb"],
+            expire_days=plan_config["days"],
+            protocol=data.protocol.value,
+        )
+
+        subscription_url = marzban_user.get("subscription_url", "")
+
+    except MarzbanAPIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Marzban API error: {e.message}",
+        )
+
+    # Calculate dates
+    now = datetime.utcnow()
+    expires_at = now + timedelta(days=plan_config["days"])
+
+    # Create subscription in database
+    subscription = VPNSubscription(
+        telegram_id=data.telegram_id,
+        plan_type=data.plan_type,
+        protocol=data.protocol,
+        status=VPNSubscriptionStatus.active,
+        marzban_username=marzban_username,
+        subscription_url=subscription_url,
+        traffic_limit_gb=plan_config["traffic_gb"],
+        traffic_used_gb=0,
+        started_at=now,
+        expires_at=expires_at,
+    )
+
+    db.add(subscription)
+    await db.flush()
+    await db.refresh(subscription)
+
+    return VPNSubscriptionResponse(
+        id=subscription.id,
+        telegram_id=subscription.telegram_id,
+        plan_type=subscription.plan_type,
+        protocol=subscription.protocol,
+        status=subscription.status,
+        marzban_username=subscription.marzban_username,
+        subscription_url=subscription.subscription_url,
+        traffic_limit_gb=subscription.traffic_limit_gb,
+        traffic_used_gb=0,
+        started_at=subscription.started_at,
+        expires_at=subscription.expires_at,
+        created_at=subscription.created_at,
+        updated_at=subscription.updated_at,
+        days_remaining=calculate_days_remaining(subscription.expires_at),
+        traffic_percent=0,
+    )
 
 
 @router.get("/subscriptions/{subscription_id}", response_model=VPNSubscriptionResponse)

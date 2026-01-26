@@ -5,7 +5,7 @@ import {
   TagField,
 } from '@refinedev/antd';
 import { useCustom } from '@refinedev/core';
-import { Table, Space, Select, Button, Card, Row, Col, Statistic, Tag, Tooltip, Progress, Popconfirm, message, Collapse, List as AntList, Avatar } from 'antd';
+import { Table, Space, Select, Button, Card, Row, Col, Statistic, Tag, Tooltip, Progress, Popconfirm, message, Collapse, List as AntList, Avatar, Modal, Form, InputNumber, Radio } from 'antd';
 import {
   ReloadOutlined,
   SafetyCertificateOutlined,
@@ -18,6 +18,7 @@ import {
   StarOutlined,
   WalletOutlined,
   HistoryOutlined,
+  GiftOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -110,6 +111,9 @@ const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 export const VPNList = () => {
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [planFilter, setPlanFilter] = useState<string | undefined>();
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm] = Form.useForm();
 
   const { tableProps, tableQueryResult } = useTable<VPNSubscription>({
     resource: 'vpn/subscriptions',
@@ -164,7 +168,7 @@ export const VPNList = () => {
       } else {
         message.error('Ошибка при отключении');
       }
-    } catch (error) {
+    } catch {
       message.error('Ошибка при отключении');
     }
   };
@@ -186,8 +190,38 @@ export const VPNList = () => {
       } else {
         message.error('Ошибка при продлении');
       }
-    } catch (error) {
+    } catch {
       message.error('Ошибка при продлении');
+    }
+  };
+
+  const handleCreate = async (values: { telegram_id: number; plan_type: string; protocol: string }) => {
+    setCreateLoading(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/vpn/subscriptions/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        message.success(`Подписка создана! Marzban: ${data.marzban_username}`);
+        setCreateModalOpen(false);
+        createForm.resetFields();
+        tableQueryResult.refetch();
+        refetchStats();
+      } else {
+        const error = await response.json();
+        message.error(error.detail || 'Ошибка при создании');
+      }
+    } catch {
+      message.error('Ошибка при создании подписки');
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -196,6 +230,13 @@ export const VPNList = () => {
       title="VPN Подписки"
       headerButtons={() => (
         <Space>
+          <Button
+            type="primary"
+            icon={<GiftOutlined />}
+            onClick={() => setCreateModalOpen(true)}
+          >
+            Создать подписку
+          </Button>
           <Button
             icon={<ReloadOutlined />}
             onClick={() => {
@@ -544,6 +585,88 @@ export const VPNList = () => {
           )}
         />
       </Table>
+
+      {/* Create Subscription Modal */}
+      <Modal
+        title={
+          <Space>
+            <GiftOutlined />
+            <span>Создать подписку вручную</span>
+          </Space>
+        }
+        open={createModalOpen}
+        onCancel={() => {
+          setCreateModalOpen(false);
+          createForm.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={handleCreate}
+          initialValues={{
+            plan_type: 'month_1',
+            protocol: 'vless',
+          }}
+        >
+          <Form.Item
+            name="telegram_id"
+            label="Telegram ID пользователя"
+            rules={[
+              { required: true, message: 'Введите Telegram ID' },
+              { type: 'number', min: 1, message: 'Некорректный ID' },
+            ]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="123456789"
+              formatter={(value) => `${value}`.replace(/\D/g, '')}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="plan_type"
+            label="Тариф"
+            rules={[{ required: true }]}
+          >
+            <Radio.Group>
+              <Radio.Button value="month_1">1 месяц (100 GB)</Radio.Button>
+              <Radio.Button value="month_3">3 месяца (300 GB)</Radio.Button>
+              <Radio.Button value="year_1">12 месяцев (Безлимит)</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item
+            name="protocol"
+            label="Протокол"
+            rules={[{ required: true }]}
+          >
+            <Radio.Group>
+              <Radio.Button value="vless">VLESS Reality</Radio.Button>
+              <Radio.Button value="shadowsocks">Outline</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+
+          <div style={{ background: '#1a1a1a', padding: 12, borderRadius: 6, marginBottom: 16 }}>
+            <div style={{ color: '#888', fontSize: 12 }}>
+              Подписка будет создана бесплатно (для тестов/подарков).
+              <br />
+              Пользователь в Marzban будет создан автоматически.
+            </div>
+          </div>
+
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button onClick={() => setCreateModalOpen(false)}>Отмена</Button>
+              <Button type="primary" htmlType="submit" loading={createLoading}>
+                Создать
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </List>
   );
 };

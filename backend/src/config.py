@@ -7,7 +7,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Version
-    version: str = "1.4.0"
+    version: str = "1.5.1"
 
     # Database
     postgres_host: str = "postgres"
@@ -33,6 +33,11 @@ class Settings(BaseSettings):
 
     # VPN Bot (for Telegram Stars API)
     vpn_bot_token: str = ""
+
+    # Marzban VPN Panel
+    marzban_url: str = ""
+    marzban_username: str = ""
+    marzban_password: str = ""
 
     # CORS
     cors_origins: list[str] = [
