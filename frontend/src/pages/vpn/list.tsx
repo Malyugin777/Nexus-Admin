@@ -5,7 +5,7 @@ import {
   TagField,
 } from '@refinedev/antd';
 import { useCustom } from '@refinedev/core';
-import { Table, Space, Select, Button, Card, Row, Col, Statistic, Tag, Tooltip, Progress, Popconfirm, message } from 'antd';
+import { Table, Space, Select, Button, Card, Row, Col, Statistic, Tag, Tooltip, Progress, Popconfirm, message, Collapse, List as AntList, Avatar } from 'antd';
 import {
   ReloadOutlined,
   SafetyCertificateOutlined,
@@ -17,6 +17,7 @@ import {
   PlusOutlined,
   StarOutlined,
   WalletOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import dayjs from 'dayjs';
@@ -55,6 +56,27 @@ interface VPNStats {
 interface BotBalance {
   balance: number;
   balance_rub: number;
+}
+
+interface StarTransaction {
+  id: string;
+  amount: number;
+  date: number;
+  source?: {
+    type: string;
+    user?: {
+      id: number;
+      first_name: string;
+      last_name?: string;
+      username?: string;
+    };
+  };
+  receiver?: unknown;
+}
+
+interface TransactionsResponse {
+  transactions: StarTransaction[];
+  total: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -111,8 +133,18 @@ export const VPNList = () => {
     method: 'get',
   });
 
+  // Fetch Star transactions
+  const { data: transactionsData, refetch: refetchTransactions } = useCustom<TransactionsResponse>({
+    url: '/vpn/transactions',
+    method: 'get',
+    config: {
+      query: { limit: 10 },
+    },
+  });
+
   const stats = statsData?.data;
   const balance = balanceData?.data;
+  const transactions = transactionsData?.data?.transactions || [];
 
   const handleDisable = async (id: number) => {
     try {
@@ -169,6 +201,7 @@ export const VPNList = () => {
               tableQueryResult.refetch();
               refetchStats();
               refetchBalance();
+              refetchTransactions();
             }}
           >
             Обновить
@@ -221,6 +254,60 @@ export const VPNList = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Recent Transactions */}
+      <Collapse
+        style={{ marginBottom: 16 }}
+        items={[
+          {
+            key: 'transactions',
+            label: (
+              <Space>
+                <HistoryOutlined />
+                <span>Последние транзакции Stars ({transactions.length})</span>
+              </Space>
+            ),
+            children: (
+              <AntList
+                size="small"
+                dataSource={transactions}
+                locale={{ emptyText: 'Нет транзакций' }}
+                renderItem={(txn: StarTransaction) => (
+                  <AntList.Item>
+                    <AntList.Item.Meta
+                      avatar={
+                        <Avatar
+                          style={{ backgroundColor: txn.amount > 0 ? '#52c41a' : '#ff4d4f' }}
+                          icon={<StarOutlined />}
+                        />
+                      }
+                      title={
+                        <Space>
+                          <span style={{ color: txn.amount > 0 ? '#52c41a' : '#ff4d4f' }}>
+                            {txn.amount > 0 ? '+' : ''}{txn.amount} ⭐
+                          </span>
+                          {txn.source?.user && (
+                            <Tag>
+                              {txn.source.user.first_name}
+                              {txn.source.user.username && ` @${txn.source.user.username}`}
+                            </Tag>
+                          )}
+                        </Space>
+                      }
+                      description={
+                        <span style={{ color: '#888' }}>
+                          {dayjs.unix(txn.date).format('DD.MM.YYYY HH:mm')}
+                          {txn.source?.type && ` • ${txn.source.type}`}
+                        </span>
+                      }
+                    />
+                  </AntList.Item>
+                )}
+              />
+            ),
+          },
+        ]}
+      />
 
       {/* Stats Cards */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
