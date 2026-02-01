@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..redis_client import get_redis
-from ..models import Broadcast, BroadcastStatus, AdminUser, User, Segment
+from ..models import Broadcast, BroadcastStatus, AdminUser, User, Segment, BotUser
 from ..schemas import (
     BroadcastCreate, BroadcastUpdate, BroadcastResponse, BroadcastListResponse, BroadcastProgress
 )
@@ -75,12 +75,21 @@ async def count_recipients(
     target_type: str,
     target_segment_id: Optional[int] = None,
     target_user_ids: Optional[List[int]] = None,
+    target_bots: Optional[List[int]] = None,
 ) -> int:
     """Count recipients based on targeting."""
     if target_type == "all":
-        result = await db.execute(
-            select(func.count(User.id)).where(User.is_blocked == False)
-        )
+        if target_bots:
+            # Only count users of selected bots
+            result = await db.execute(
+                select(func.count(func.distinct(BotUser.user_id)))
+                .join(User, BotUser.user_id == User.id)
+                .where(BotUser.bot_id.in_(target_bots), User.is_blocked == False)
+            )
+        else:
+            result = await db.execute(
+                select(func.count(User.id)).where(User.is_blocked == False)
+            )
         return result.scalar() or 0
 
     elif target_type == "list" and target_user_ids:
@@ -93,7 +102,14 @@ async def count_recipients(
 
         # Build query from segment conditions
         filters = build_segment_query(segment.conditions or {})
-        query = select(func.count(User.id))
+        if target_bots:
+            query = (
+                select(func.count(func.distinct(BotUser.user_id)))
+                .join(User, BotUser.user_id == User.id)
+                .where(BotUser.bot_id.in_(target_bots))
+            )
+        else:
+            query = select(func.count(User.id))
         for f in filters:
             query = query.where(f)
 
@@ -172,7 +188,7 @@ async def create_broadcast(
     """Create a new broadcast."""
     # Count recipients
     recipients = await count_recipients(
-        db, data.target_type, data.target_segment_id, data.target_user_ids
+        db, data.target_type, data.target_segment_id, data.target_user_ids, data.target_bots
     )
 
     broadcast = Broadcast(
@@ -231,12 +247,13 @@ async def update_broadcast(
         setattr(broadcast, key, value)
 
     # Recalculate recipients if targeting changed
-    if any(k in update_data for k in ["target_type", "target_segment_id", "target_user_ids"]):
+    if any(k in update_data for k in ["target_type", "target_segment_id", "target_user_ids", "target_bots"]):
         broadcast.total_recipients = await count_recipients(
             db,
             broadcast.target_type,
             broadcast.target_segment_id,
             broadcast.target_user_ids,
+            broadcast.target_bots,
         )
 
     # Update status based on scheduled_at
