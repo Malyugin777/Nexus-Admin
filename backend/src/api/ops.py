@@ -9,7 +9,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, and_, case, text
+from sqlalchemy import select, func, and_, case, text, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -1048,7 +1048,7 @@ async def get_fallbacks(
         conditions.append(ActionLog.api_source == provider)
 
     if platform:
-        conditions.append(ActionLog.details["platform"].astext == platform)
+        conditions.append(cast(ActionLog.details["platform"], String) == platform)
 
     # Получаем записи
     query = (
@@ -1094,7 +1094,7 @@ async def get_fallbacks(
         # Топ причин для провайдера
         reasons_query = (
             select(
-                ActionLog.details["reason"].astext.label("reason"),
+                cast(ActionLog.details["reason"], String).label("reason"),
                 func.count(ActionLog.id).label("cnt")
             )
             .where(and_(
@@ -1102,7 +1102,7 @@ async def get_fallbacks(
                 ActionLog.api_source == row.api_source,
                 ActionLog.created_at >= since
             ))
-            .group_by(ActionLog.details["reason"].astext)
+            .group_by(cast(ActionLog.details["reason"], String))
             .order_by(func.count(ActionLog.id).desc())
             .limit(5)
         )
