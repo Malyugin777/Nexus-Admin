@@ -293,6 +293,50 @@ async def delete_broadcast(
     await db.delete(broadcast)
 
 
+@router.post("/{broadcast_id}/duplicate", response_model=BroadcastResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_broadcast(
+    broadcast_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """Create a copy of an existing broadcast as a draft."""
+    result = await db.execute(select(Broadcast).where(Broadcast.id == broadcast_id))
+    original = result.scalar_one_or_none()
+
+    if not original:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Broadcast not found",
+        )
+
+    # Recalculate recipients with current data
+    recipients = await count_recipients(
+        db, original.target_type, original.target_segment_id,
+        original.target_user_ids, original.target_bots,
+    )
+
+    copy = Broadcast(
+        name=f"{original.name} (копия)",
+        text=original.text,
+        image_url=original.image_url,
+        message_video=original.message_video,
+        buttons=original.buttons,
+        target_type=original.target_type,
+        target_bots=original.target_bots,
+        target_languages=original.target_languages,
+        target_segment_id=original.target_segment_id,
+        target_user_ids=original.target_user_ids,
+        status=BroadcastStatus.DRAFT,
+        total_recipients=recipients,
+        created_by=current_user.id,
+    )
+    db.add(copy)
+    await db.flush()
+    await db.refresh(copy)
+
+    return copy
+
+
 @router.post("/{broadcast_id}/start", response_model=BroadcastResponse)
 async def start_broadcast(
     broadcast_id: int,

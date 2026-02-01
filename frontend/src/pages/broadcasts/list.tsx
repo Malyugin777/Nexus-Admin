@@ -12,8 +12,9 @@ import {
   StopOutlined,
   ReloadOutlined,
   PlusOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
-import { useCustomMutation, useNavigation } from '@refinedev/core';
+import { useCustomMutation, useNavigation, useCreate } from '@refinedev/core';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -57,7 +58,7 @@ const targetLabels: Record<string, string> = {
 
 export const BroadcastList = () => {
   const { t } = useTranslation();
-  const { create } = useNavigation();
+  const { create, edit } = useNavigation();
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
 
   const { tableProps, tableQueryResult } = useTable<Broadcast>({
@@ -72,6 +73,7 @@ export const BroadcastList = () => {
 
   const { mutate: startBroadcast, isLoading: isStarting } = useCustomMutation();
   const { mutate: cancelBroadcast, isLoading: isCancelling } = useCustomMutation();
+  const { mutateAsync: duplicateMutation } = useCustomMutation();
 
   const handleStart = (id: number) => {
     startBroadcast(
@@ -109,6 +111,25 @@ export const BroadcastList = () => {
         },
       }
     );
+  };
+
+  const handleDuplicate = async (id: number) => {
+    try {
+      const result = await duplicateMutation({
+        url: `/broadcasts/${id}/duplicate`,
+        method: 'post',
+        values: {},
+      });
+      const newId = (result as any)?.data?.id;
+      message.success('Копия создана');
+      if (newId) {
+        edit('broadcasts', newId);
+      } else {
+        tableQueryResult.refetch();
+      }
+    } catch {
+      message.error('Ошибка дублирования');
+    }
   };
 
   return (
@@ -219,6 +240,15 @@ export const BroadcastList = () => {
                   onClick={() => handleCancel(record.id)}
                   title="Отменить"
                 />
+              )}
+              {(record.status === 'completed' || record.status === 'cancelled') && (
+                <Tooltip title="Дублировать">
+                  <Button
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => handleDuplicate(record.id)}
+                  />
+                </Tooltip>
               )}
             </Space>
           )}

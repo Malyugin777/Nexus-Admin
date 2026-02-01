@@ -1,9 +1,9 @@
 import { Show, TagField } from '@refinedev/antd';
-import { useShow, useCustomMutation } from '@refinedev/core';
+import { useShow, useCustomMutation, useNavigation } from '@refinedev/core';
 import { Typography, Descriptions, Card, Row, Col, Progress, Space, Button, message, Statistic } from 'antd';
-import { PlayCircleOutlined, StopOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, StopOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const { Title, Paragraph } = Typography;
 
@@ -58,6 +58,9 @@ export const BroadcastShow = () => {
 
   const { mutate: startBroadcast, isLoading: isStarting } = useCustomMutation();
   const { mutate: cancelBroadcast, isLoading: isCancelling } = useCustomMutation();
+  const { mutateAsync: duplicateBroadcast } = useCustomMutation();
+  const { edit } = useNavigation();
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Автообновление при running статусе
   useEffect(() => {
@@ -99,6 +102,27 @@ export const BroadcastShow = () => {
         onError: () => message.error('Ошибка отмены'),
       }
     );
+  };
+
+  const handleDuplicate = async () => {
+    if (!record) return;
+    setIsDuplicating(true);
+    try {
+      const result = await duplicateBroadcast({
+        url: `/broadcasts/${record.id}/duplicate`,
+        method: 'post',
+        values: {},
+      });
+      const newId = (result as any)?.data?.id;
+      message.success('Копия создана');
+      if (newId) {
+        edit('broadcasts', newId);
+      }
+    } catch {
+      message.error('Ошибка дублирования');
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   return (
@@ -218,6 +242,17 @@ export const BroadcastShow = () => {
                     Обновить
                   </Button>
                 </>
+              )}
+              {(record?.status === 'completed' || record?.status === 'cancelled') && (
+                <Button
+                  icon={<CopyOutlined />}
+                  block
+                  size="large"
+                  loading={isDuplicating}
+                  onClick={handleDuplicate}
+                >
+                  Дублировать
+                </Button>
               )}
             </Space>
           </Card>
