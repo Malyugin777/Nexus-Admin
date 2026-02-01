@@ -126,14 +126,14 @@ export const BotList = () => {
         <Table.Column
           dataIndex="token_hash"
           title={t('bots.token')}
-          render={(value: string) => (
+          render={(value: string) => value ? (
             <Tooltip title={value}>
               <Space>
                 <EyeInvisibleOutlined />
                 <span>{value.substring(0, 8)}...</span>
               </Space>
             </Tooltip>
-          )}
+          ) : <span style={{ color: '#999' }}>—</span>}
         />
         <Table.Column
           title={t('common.actions')}

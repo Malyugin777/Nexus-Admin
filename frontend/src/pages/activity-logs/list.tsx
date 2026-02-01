@@ -175,7 +175,7 @@ export const LogList = () => {
                     <span>
                       <TagField color="blue" value={platform} style={{ marginRight: 4 }} />
                       <a href={url} target="_blank" rel="noopener noreferrer">
-                        {url.substring(0, 35)}...
+                        {url?.substring(0, 35)}...
                       </a>
                     </span>
                   </Tooltip>

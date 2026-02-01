@@ -169,11 +169,11 @@ export const ErrorList = () => {
           title="URL"
           width={200}
           ellipsis
-          render={(value: string) => (
+          render={(value: string) => value ? (
             <a href={value} target="_blank" rel="noopener noreferrer">
               {value.substring(0, 40)}...
             </a>
-          )}
+          ) : '—'}
         />
         <Table.Column
           dataIndex="created_at"
