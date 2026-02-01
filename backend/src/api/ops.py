@@ -1048,7 +1048,7 @@ async def get_fallbacks(
         conditions.append(ActionLog.api_source == provider)
 
     if platform:
-        conditions.append(cast(ActionLog.details["platform"], String) == platform)
+        conditions.append(ActionLog.details["platform"].cast(String) == platform)
 
     # Получаем записи
     query = (
@@ -1092,9 +1092,10 @@ async def get_fallbacks(
         provider_name = str(row.api_source) if row.api_source else "unknown"
 
         # Топ причин для провайдера
+        reason_expr = ActionLog.details["reason"].cast(String)
         reasons_query = (
             select(
-                cast(ActionLog.details["reason"], String).label("reason"),
+                reason_expr.label("reason"),
                 func.count(ActionLog.id).label("cnt")
             )
             .where(and_(
@@ -1102,7 +1103,7 @@ async def get_fallbacks(
                 ActionLog.api_source == row.api_source,
                 ActionLog.created_at >= since
             ))
-            .group_by(cast(ActionLog.details["reason"], String))
+            .group_by(reason_expr)
             .order_by(func.count(ActionLog.id).desc())
             .limit(5)
         )
