@@ -18,11 +18,13 @@ class StatsResponse(BaseModel):
     total_bots: int
     active_bots: int
     total_users: int
-    active_users_today: int  # DAU
-    downloads_today: int
+    active_users_today: int  # DAU за период
+    downloads_today: int     # Скачивания за период
     total_downloads: int
     messages_in_queue: int
     broadcasts_running: int
+    errors_period: int = 0
+    errors_by_platform: dict = {}
 
 
 class ChartDataPoint(BaseModel):

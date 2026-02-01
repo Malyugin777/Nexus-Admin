@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..redis_client import get_redis
 from ..config import settings
-from ..models import Bot, User, Broadcast, ActionLog, BotStatus, BroadcastStatus, APISource
+from ..models import Bot, User, BotUser, Broadcast, ActionLog, DownloadError, BotStatus, BroadcastStatus, APISource
 from ..schemas import StatsResponse, LoadChartResponse, ChartDataPoint, PerformanceResponse, PlatformPerformance, APIUsageResponse, APIUsageStats
 from ..auth import get_current_user
 
@@ -35,10 +35,17 @@ router = APIRouter()
 
 @router.get("", response_model=StatsResponse)
 async def get_stats(
+    days: int = Query(1, ge=1, le=30),
+    bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    """Get dashboard statistics."""
+    """Get dashboard statistics. days=1 means today, 7=week, 30=month."""
+    # Period start
+    since = (datetime.utcnow() - timedelta(days=days - 1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
     # Total bots
     result = await db.execute(select(func.count(Bot.id)))
     total_bots = result.scalar() or 0
@@ -50,31 +57,48 @@ async def get_stats(
     active_bots = result.scalar() or 0
 
     # Total users
-    result = await db.execute(select(func.count(User.id)))
+    if bot_id is not None:
+        # For specific bot: count BotUser records
+        result = await db.execute(
+            select(func.count(BotUser.id)).where(BotUser.bot_id == bot_id)
+        )
+    else:
+        # Global: count all users
+        result = await db.execute(select(func.count(User.id)))
     total_users = result.scalar() or 0
 
-    # Active users today (DAU)
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    result = await db.execute(
-        select(func.count(User.id)).where(User.last_active_at >= today_start)
-    )
+    # Active users in period
+    if bot_id is not None:
+        # For specific bot: count BotUser records with User.last_active_at
+        result = await db.execute(
+            select(func.count(BotUser.id))
+            .join(User, BotUser.user_id == User.id)
+            .where(BotUser.bot_id == bot_id, User.last_active_at >= since)
+        )
+    else:
+        # Global: count all active users
+        result = await db.execute(
+            select(func.count(User.id)).where(User.last_active_at >= since)
+        )
     active_users_today = result.scalar() or 0
 
-    # Downloads today
-    result = await db.execute(
-        select(func.count(ActionLog.id)).where(
-            ActionLog.created_at >= today_start,
-            ActionLog.action == "download_success"
-        )
+    # Downloads in period
+    query = select(func.count(ActionLog.id)).where(
+        ActionLog.created_at >= since,
+        ActionLog.action == "download_success"
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
     downloads_today = result.scalar() or 0
 
     # Total downloads
-    result = await db.execute(
-        select(func.count(ActionLog.id)).where(
-            ActionLog.action == "download_success"
-        )
+    query = select(func.count(ActionLog.id)).where(
+        ActionLog.action == "download_success"
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
     total_downloads = result.scalar() or 0
 
     # Messages in queue (from Redis)
@@ -90,6 +114,25 @@ async def get_stats(
     )
     broadcasts_running = result.scalar() or 0
 
+    # Errors in period
+    query = select(func.count(DownloadError.id)).where(
+        DownloadError.created_at >= since
+    )
+    if bot_id is not None:
+        query = query.where(DownloadError.bot_id == bot_id)
+    result = await db.execute(query)
+    errors_period = result.scalar() or 0
+
+    # Errors by platform
+    query = select(
+        DownloadError.platform,
+        func.count(DownloadError.id).label("count")
+    ).where(DownloadError.created_at >= since)
+    if bot_id is not None:
+        query = query.where(DownloadError.bot_id == bot_id)
+    result = await db.execute(query.group_by(DownloadError.platform))
+    errors_by_platform = {row.platform: row.count for row in result}
+
     return StatsResponse(
         version=settings.version,
         total_bots=total_bots,
@@ -100,12 +143,15 @@ async def get_stats(
         total_downloads=total_downloads,
         messages_in_queue=queue_length,
         broadcasts_running=broadcasts_running,
+        errors_period=errors_period,
+        errors_by_platform=errors_by_platform,
     )
 
 
 @router.get("/chart", response_model=LoadChartResponse)
 async def get_load_chart(
     days: int = 7,
+    bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -119,30 +165,44 @@ async def get_load_chart(
     )
 
     # Downloads per day - single query with GROUP BY
+    query = select(
+        func.date(ActionLog.created_at).label("date"),
+        func.count(ActionLog.id).label("count")
+    ).where(
+        ActionLog.created_at >= start_date,
+        ActionLog.action == "download_success"
+    )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
     result = await db.execute(
-        select(
-            func.date(ActionLog.created_at).label("date"),
-            func.count(ActionLog.id).label("count")
-        )
-        .where(
-            ActionLog.created_at >= start_date,
-            ActionLog.action == "download_success"
-        )
-        .group_by(func.date(ActionLog.created_at))
+        query.group_by(func.date(ActionLog.created_at))
         .order_by(func.date(ActionLog.created_at))
     )
     downloads_map = {str(row.date): row.count for row in result}
 
     # New users per day - single query with GROUP BY
-    result = await db.execute(
-        select(
-            func.date(User.created_at).label("date"),
-            func.count(User.id).label("count")
+    if bot_id is not None:
+        # For specific bot: count BotUser.joined_at
+        result = await db.execute(
+            select(
+                func.date(BotUser.joined_at).label("date"),
+                func.count(BotUser.id).label("count")
+            )
+            .where(BotUser.joined_at >= start_date, BotUser.bot_id == bot_id)
+            .group_by(func.date(BotUser.joined_at))
+            .order_by(func.date(BotUser.joined_at))
         )
-        .where(User.created_at >= start_date)
-        .group_by(func.date(User.created_at))
-        .order_by(func.date(User.created_at))
-    )
+    else:
+        # Global: count User.created_at
+        result = await db.execute(
+            select(
+                func.date(User.created_at).label("date"),
+                func.count(User.id).label("count")
+            )
+            .where(User.created_at >= start_date)
+            .group_by(func.date(User.created_at))
+            .order_by(func.date(User.created_at))
+        )
     users_map = {str(row.date): row.count for row in result}
 
     # Build response with all days (fill missing days with 0)
@@ -173,6 +233,7 @@ async def get_load_chart(
 @router.get("/platforms")
 async def get_platform_stats(
     days: int = Query(90, ge=1, le=365),
+    bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -184,13 +245,13 @@ async def get_platform_stats(
 
     # Try to use PostgreSQL JSON extraction for 'platform' field first
     # Then fall back to parsing 'info' field for older records
-    result = await db.execute(
-        select(ActionLog.details)
-        .where(
-            ActionLog.action == "download_success",
-            ActionLog.created_at >= start_date
-        )
+    query = select(ActionLog.details).where(
+        ActionLog.action == "download_success",
+        ActionLog.created_at >= start_date
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
 
     platform_counts: dict[str, int] = {}
     for row in result:
@@ -224,6 +285,7 @@ async def get_platform_stats(
 @router.get("/performance", response_model=PerformanceResponse)
 async def get_performance_stats(
     days: int = Query(30, ge=1, le=365),
+    bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -234,18 +296,19 @@ async def get_performance_stats(
     start_date = datetime.utcnow() - timedelta(days=days)
 
     # Overall metrics (last N days)
-    result = await db.execute(
-        select(
-            func.avg(ActionLog.download_time_ms).label('avg_time'),
-            func.avg(ActionLog.file_size_bytes).label('avg_size'),
-            func.avg(ActionLog.download_speed_kbps).label('avg_speed'),
-            func.count(ActionLog.id).label('total')
-        ).where(
-            ActionLog.action == "download_success",
-            ActionLog.download_time_ms.isnot(None),
-            ActionLog.created_at >= start_date
-        )
+    query = select(
+        func.avg(ActionLog.download_time_ms).label('avg_time'),
+        func.avg(ActionLog.file_size_bytes).label('avg_size'),
+        func.avg(ActionLog.download_speed_kbps).label('avg_speed'),
+        func.count(ActionLog.id).label('total')
+    ).where(
+        ActionLog.action == "download_success",
+        ActionLog.download_time_ms.isnot(None),
+        ActionLog.created_at >= start_date
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
     row = result.first()
 
     overall = PlatformPerformance(
@@ -257,18 +320,19 @@ async def get_performance_stats(
     )
 
     # Per-platform metrics (last N days)
-    result = await db.execute(
-        select(
-            ActionLog.details,
-            ActionLog.download_time_ms,
-            ActionLog.file_size_bytes,
-            ActionLog.download_speed_kbps
-        ).where(
-            ActionLog.action == "download_success",
-            ActionLog.download_time_ms.isnot(None),
-            ActionLog.created_at >= start_date
-        )
+    query = select(
+        ActionLog.details,
+        ActionLog.download_time_ms,
+        ActionLog.file_size_bytes,
+        ActionLog.download_speed_kbps
+    ).where(
+        ActionLog.action == "download_success",
+        ActionLog.download_time_ms.isnot(None),
+        ActionLog.created_at >= start_date
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
 
     platform_metrics: dict[str, dict] = {}
     for row in result:
@@ -326,6 +390,7 @@ async def get_performance_stats(
 
 @router.get("/api-usage", response_model=APIUsageResponse)
 async def get_api_usage(
+    bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -337,33 +402,31 @@ async def get_api_usage(
     month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Today's usage - single query with GROUP BY
-    result = await db.execute(
-        select(
-            ActionLog.api_source,
-            func.count(ActionLog.id).label("count")
-        )
-        .where(
-            ActionLog.created_at >= today_start,
-            ActionLog.action == "download_success",
-            ActionLog.api_source.isnot(None)
-        )
-        .group_by(ActionLog.api_source)
+    query = select(
+        ActionLog.api_source,
+        func.count(ActionLog.id).label("count")
+    ).where(
+        ActionLog.created_at >= today_start,
+        ActionLog.action == "download_success",
+        ActionLog.api_source.isnot(None)
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query.group_by(ActionLog.api_source))
     today_counts = {row.api_source: row.count for row in result}
 
     # Month's usage - single query with GROUP BY
-    result = await db.execute(
-        select(
-            ActionLog.api_source,
-            func.count(ActionLog.id).label("count")
-        )
-        .where(
-            ActionLog.created_at >= month_start,
-            ActionLog.action == "download_success",
-            ActionLog.api_source.isnot(None)
-        )
-        .group_by(ActionLog.api_source)
+    query = select(
+        ActionLog.api_source,
+        func.count(ActionLog.id).label("count")
+    ).where(
+        ActionLog.created_at >= month_start,
+        ActionLog.action == "download_success",
+        ActionLog.api_source.isnot(None)
     )
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query.group_by(ActionLog.api_source))
     month_counts = {row.api_source: row.count for row in result}
 
     # Extract counts for each API
@@ -398,6 +461,7 @@ async def get_api_usage(
 
 @router.get("/flyer", response_model=FlyerStatsResponse)
 async def get_flyer_stats(
+    bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -410,37 +474,37 @@ async def get_flyer_stats(
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # === 1. Скачивания (всего) ===
-    result = await db.execute(
-        select(
-            func.count(ActionLog.id).filter(ActionLog.created_at >= today_start).label("today"),
-            func.count(ActionLog.id).label("total")
-        )
-        .where(ActionLog.action == "download_success")
-    )
+    query = select(
+        func.count(ActionLog.id).filter(ActionLog.created_at >= today_start).label("today"),
+        func.count(ActionLog.id).label("total")
+    ).where(ActionLog.action == "download_success")
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
     row = result.first()
     downloads_today = row.today or 0
     downloads_total = row.total or 0
 
     # === 2. Предложения рекламы (УНИКАЛЬНЫЕ юзеры) ===
-    result = await db.execute(
-        select(
-            func.count(func.distinct(ActionLog.user_id)).filter(ActionLog.created_at >= today_start).label("today"),
-            func.count(func.distinct(ActionLog.user_id)).label("total")
-        )
-        .where(ActionLog.action == "flyer_ad_shown")
-    )
+    query = select(
+        func.count(func.distinct(ActionLog.user_id)).filter(ActionLog.created_at >= today_start).label("today"),
+        func.count(func.distinct(ActionLog.user_id)).label("total")
+    ).where(ActionLog.action == "flyer_ad_shown")
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
     row = result.first()
     ad_offers_today = row.today or 0
     ad_offers_total = row.total or 0
 
     # === 3. Подписки (flyer_sub_completed) ===
-    result = await db.execute(
-        select(
-            func.count(ActionLog.id).filter(ActionLog.created_at >= today_start).label("today"),
-            func.count(ActionLog.id).label("total")
-        )
-        .where(ActionLog.action == "flyer_sub_completed")
-    )
+    query = select(
+        func.count(ActionLog.id).filter(ActionLog.created_at >= today_start).label("today"),
+        func.count(ActionLog.id).label("total")
+    ).where(ActionLog.action == "flyer_sub_completed")
+    if bot_id is not None:
+        query = query.where(ActionLog.bot_id == bot_id)
+    result = await db.execute(query)
     row = result.first()
     subscribed_today = row.today or 0
     subscribed_total = row.total or 0

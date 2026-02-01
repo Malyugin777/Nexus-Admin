@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useCustom } from '@refinedev/core';
-import { Row, Col, Card, Statistic, Spin } from 'antd';
+import { Row, Col, Card, Statistic, Spin, Segmented, Select } from 'antd';
 import {
   RobotOutlined,
   UserOutlined,
@@ -9,6 +10,7 @@ import {
   ClockCircleOutlined,
   FireOutlined,
   DashboardOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { Area, Pie } from '@ant-design/charts';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +25,8 @@ interface Stats {
   total_downloads: number;
   messages_in_queue: number;
   broadcasts_running: number;
+  errors_period: number;
+  errors_by_platform: Record<string, number>;
 }
 
 interface ChartDataPoint {
@@ -63,35 +67,91 @@ interface FlyerStatsData {
   subscribed_total: number;
 }
 
+interface BotListData {
+  data: Array<{ id: number; name: string; username: string }>;
+  total: number;
+}
+
 export const Dashboard = () => {
   const { t } = useTranslation();
+  const [period, setPeriod] = useState<number>(1);
+  const [selectedBotId, setSelectedBotId] = useState<number | null>(null);
+
+  const periodLabel = period === 1 ? 'Сегодня' : period === 7 ? '7 дней' : '30 дней';
+
+  // Fetch bots list
+  const { data: botsData } = useCustom<BotListData>({
+    url: '/bots',
+    method: 'get',
+  });
+
+  const bots = botsData?.data?.data || [];
 
   const { data: statsData, isLoading: statsLoading } = useCustom<Stats>({
     url: '/stats',
     method: 'get',
+    config: {
+      query: {
+        days: period,
+        ...(selectedBotId !== null && { bot_id: selectedBotId }),
+      },
+    },
+    queryOptions: {
+      queryKey: ['stats', period, selectedBotId],
+    },
   });
 
   const { data: chartData, isLoading: chartLoading } = useCustom<ChartData>({
     url: '/stats/chart',
     method: 'get',
     config: {
-      query: { days: 7 },
+      query: {
+        days: period < 7 ? 7 : period,
+        ...(selectedBotId !== null && { bot_id: selectedBotId }),
+      },
+    },
+    queryOptions: {
+      queryKey: ['chart', period, selectedBotId],
     },
   });
 
   const { data: platformData } = useCustom<PlatformData>({
     url: '/stats/platforms',
     method: 'get',
+    config: {
+      query: {
+        ...(selectedBotId !== null && { bot_id: selectedBotId }),
+      },
+    },
+    queryOptions: {
+      queryKey: ['platforms', selectedBotId],
+    },
   });
 
   const { data: performanceData } = useCustom<PerformanceData>({
     url: '/stats/performance',
     method: 'get',
+    config: {
+      query: {
+        ...(selectedBotId !== null && { bot_id: selectedBotId }),
+      },
+    },
+    queryOptions: {
+      queryKey: ['performance', selectedBotId],
+    },
   });
 
   const { data: flyerStatsData } = useCustom<FlyerStatsData>({
     url: '/stats/flyer',
     method: 'get',
+    config: {
+      query: {
+        ...(selectedBotId !== null && { bot_id: selectedBotId }),
+      },
+    },
+    queryOptions: {
+      queryKey: ['flyer', selectedBotId],
+    },
   });
 
   const stats = statsData?.data;
@@ -245,9 +305,33 @@ export const Dashboard = () => {
     <div style={{ padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ margin: 0 }}>{t('dashboard.title')}</h1>
-        {stats?.version && (
-          <span style={{ color: '#888', fontSize: '14px' }}>v{stats.version}</span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Segmented
+            options={[
+              { label: 'Сегодня', value: 1 },
+              { label: '7 дней', value: 7 },
+              { label: '30 дней', value: 30 },
+            ]}
+            value={period}
+            onChange={(val) => setPeriod(val as number)}
+          />
+          <Select
+            placeholder="Все боты"
+            allowClear
+            style={{ width: 200 }}
+            value={selectedBotId}
+            onChange={(value) => setSelectedBotId(value ?? null)}
+            options={[
+              ...bots.map((bot) => ({
+                label: bot.name,
+                value: bot.id,
+              })),
+            ]}
+          />
+          {stats?.version && (
+            <span style={{ color: '#888', fontSize: '14px' }}>v{stats.version}</span>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -288,7 +372,7 @@ export const Dashboard = () => {
         <Col xs={24} sm={12} lg={8} xl={4}>
           <Card className="stat-card">
             <Statistic
-              title={t('dashboard.dauToday')}
+              title={`DAU (${periodLabel})`}
               value={stats?.active_users_today || 0}
               prefix={<UserOutlined />}
               valueStyle={{ color: '#13c2c2' }}
@@ -299,7 +383,7 @@ export const Dashboard = () => {
         <Col xs={24} sm={12} lg={8} xl={4}>
           <Card className="stat-card">
             <Statistic
-              title={t('dashboard.downloadsToday')}
+              title={`Скачивания (${periodLabel})`}
               value={stats?.downloads_today || 0}
               prefix={<FireOutlined />}
               valueStyle={{ color: '#fa541c' }}
@@ -333,6 +417,35 @@ export const Dashboard = () => {
               />
             </Card>
           </Col>
+        </Row>
+      )}
+
+      {/* Errors Widget */}
+      {stats && stats.errors_period > 0 && (
+        <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
+          <Col xs={24} sm={8} lg={6}>
+            <Card className="stat-card">
+              <Statistic
+                title={`Ошибки (${periodLabel})`}
+                value={stats.errors_period}
+                prefix={<WarningOutlined />}
+                valueStyle={{ color: '#cf1322' }}
+              />
+            </Card>
+          </Col>
+          {Object.entries(stats.errors_by_platform || {})
+            .sort(([, a], [, b]) => b - a)
+            .map(([platform, count]) => (
+            <Col xs={12} sm={8} lg={4} key={platform}>
+              <Card className="stat-card">
+                <Statistic
+                  title={platform.charAt(0).toUpperCase() + platform.slice(1)}
+                  value={count}
+                  valueStyle={{ color: '#cf1322', fontSize: '20px' }}
+                />
+              </Card>
+            </Col>
+          ))}
         </Row>
       )}
 
