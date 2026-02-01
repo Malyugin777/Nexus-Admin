@@ -89,7 +89,7 @@ class BotUpdate(BaseModel):
 
 class BotResponse(BotBase):
     id: int
-    token_hash: str  # Show hash, not actual token
+    token_hash: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     users_count: int = 0
