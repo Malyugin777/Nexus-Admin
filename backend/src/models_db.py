@@ -25,13 +25,18 @@ class BotStatus(str, PyEnum):
     DISABLED = "disabled"
 
 
-class APISource(str, PyEnum):
+class APISource:
+    """API source constants (stored as VARCHAR in DB, no enum migration needed)."""
     YTDLP = "ytdlp"
     RAPIDAPI = "rapidapi"
     COBALT = "cobalt"
     PYTUBEFIX = "pytubefix"
     INSTALOADER = "instaloader"
     SAVENOW = "savenow"
+    VK_MUSIC = "vk_music"
+    YANDEX_MUSIC = "yandex_music"
+    YOUTUBE_MUSIC = "youtube_music"
+    DEEZER = "deezer"
 
 
 class User(Base):
@@ -110,7 +115,7 @@ class ActionLog(Base):
     download_speed_kbps = Column(Integer, nullable=True)
 
     # API tracking
-    api_source = Column(Enum(APISource), nullable=True, index=True)
+    api_source = Column(String(50), nullable=True, index=True)
 
     user = relationship("User", back_populates="action_logs")
     bot = relationship("Bot", back_populates="action_logs")

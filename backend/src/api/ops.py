@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..redis_client import get_redis
-from ..models import ActionLog, APISource
+from ..models import ActionLog
 from ..auth import get_current_user
 
 router = APIRouter()
@@ -486,7 +486,7 @@ async def get_quota_status(
         )
         .where(
             ActionLog.action == "download_success",
-            ActionLog.api_source == APISource.RAPIDAPI
+            ActionLog.api_source == "rapidapi"
         )
     )
     row = result.first()
@@ -500,7 +500,7 @@ async def get_quota_status(
         select(ActionLog.details)
         .where(
             ActionLog.action == "download_success",
-            ActionLog.api_source == APISource.RAPIDAPI
+            ActionLog.api_source == "rapidapi"
         )
         .order_by(ActionLog.created_at.desc())
         .limit(1)
@@ -551,7 +551,7 @@ async def get_quota_status(
         select(ActionLog.details)
         .where(
             ActionLog.action == "download_success",
-            ActionLog.api_source == APISource.SAVENOW
+            ActionLog.api_source == "savenow"
         )
         .order_by(ActionLog.created_at.desc())
         .limit(1)

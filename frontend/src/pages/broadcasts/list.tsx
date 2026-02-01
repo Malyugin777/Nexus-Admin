@@ -14,7 +14,7 @@ import {
   PlusOutlined,
   CopyOutlined,
 } from '@ant-design/icons';
-import { useCustomMutation, useNavigation } from '@refinedev/core';
+import { useCustomMutation, useCustom, useNavigation } from '@refinedev/core';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -56,18 +56,34 @@ const targetLabels: Record<string, string> = {
   list: 'Список',
 };
 
+interface Bot {
+  id: number;
+  name: string;
+}
+
 export const BroadcastList = () => {
   const { t } = useTranslation();
   const { create, edit } = useNavigation();
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [botFilter, setBotFilter] = useState<number | undefined>();
+
+  // Fetch bots for filter dropdown
+  const { data: botsData } = useCustom<{ data: Bot[] }>({
+    url: '/bots',
+    method: 'get',
+    config: { query: { page_size: 100 } },
+  });
+
+  const bots = botsData?.data?.data || [];
 
   const { tableProps, tableQueryResult } = useTable<Broadcast>({
     resource: 'broadcasts',
     syncWithLocation: true,
     filters: {
-      permanent: statusFilter
-        ? [{ field: 'status_filter', operator: 'eq' as const, value: statusFilter }]
-        : [],
+      permanent: [
+        ...(statusFilter ? [{ field: 'status_filter', operator: 'eq' as const, value: statusFilter }] : []),
+        ...(botFilter ? [{ field: 'bot_id', operator: 'eq' as const, value: botFilter }] : []),
+      ],
     },
   });
 
@@ -141,6 +157,17 @@ export const BroadcastList = () => {
       }
     >
       <Space style={{ marginBottom: 16 }}>
+        <Select
+          placeholder="Бот"
+          style={{ width: 150 }}
+          allowClear
+          value={botFilter}
+          onChange={setBotFilter}
+          options={bots.map((bot) => ({
+            label: bot.name,
+            value: bot.id,
+          }))}
+        />
         <Select
           placeholder="Статус"
           style={{ width: 150 }}

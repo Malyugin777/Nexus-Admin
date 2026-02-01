@@ -51,6 +51,7 @@ async def list_errors(
     page_size: int = Query(20, ge=1, le=100),
     platform: Optional[str] = None,
     error_type: Optional[str] = None,
+    bot_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -61,6 +62,8 @@ async def list_errors(
         query = query.where(DownloadError.platform == platform)
     if error_type:
         query = query.where(DownloadError.error_type == error_type)
+    if bot_id is not None:
+        query = query.where(DownloadError.bot_id == bot_id)
 
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
@@ -84,35 +87,44 @@ async def list_errors(
 
 @router.get("/stats", response_model=ErrorStatsResponse)
 async def get_error_stats(
+    bot_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
     """Get download error statistics."""
+    base_filter = []
+    if bot_id is not None:
+        base_filter.append(DownloadError.bot_id == bot_id)
+
     # Total errors
-    result = await db.execute(select(func.count(DownloadError.id)))
+    query = select(func.count(DownloadError.id))
+    for f in base_filter:
+        query = query.where(f)
+    result = await db.execute(query)
     total_errors = result.scalar() or 0
 
     # Errors today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    result = await db.execute(
-        select(func.count(DownloadError.id)).where(
-            DownloadError.created_at >= today_start
-        )
+    query = select(func.count(DownloadError.id)).where(
+        DownloadError.created_at >= today_start
     )
+    for f in base_filter:
+        query = query.where(f)
+    result = await db.execute(query)
     errors_today = result.scalar() or 0
 
     # Errors by platform
-    result = await db.execute(
-        select(DownloadError.platform, func.count(DownloadError.id))
-        .group_by(DownloadError.platform)
-    )
+    query = select(DownloadError.platform, func.count(DownloadError.id)).group_by(DownloadError.platform)
+    for f in base_filter:
+        query = query.where(f)
+    result = await db.execute(query)
     errors_by_platform = {row[0]: row[1] for row in result.fetchall()}
 
     # Errors by type
-    result = await db.execute(
-        select(DownloadError.error_type, func.count(DownloadError.id))
-        .group_by(DownloadError.error_type)
-    )
+    query = select(DownloadError.error_type, func.count(DownloadError.id)).group_by(DownloadError.error_type)
+    for f in base_filter:
+        query = query.where(f)
+    result = await db.execute(query)
     errors_by_type = {row[0]: row[1] for row in result.fetchall()}
 
     return ErrorStatsResponse(
@@ -121,3 +133,29 @@ async def get_error_stats(
         errors_by_platform=errors_by_platform,
         errors_by_type=errors_by_type,
     )
+
+
+@router.get("/platforms")
+async def get_error_platforms(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Get unique platform values from download errors."""
+    result = await db.execute(
+        select(DownloadError.platform).distinct().order_by(DownloadError.platform)
+    )
+    platforms = [row[0] for row in result.all()]
+    return {"platforms": platforms}
+
+
+@router.get("/types")
+async def get_error_types(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Get unique error_type values from download errors."""
+    result = await db.execute(
+        select(DownloadError.error_type).distinct().order_by(DownloadError.error_type)
+    )
+    types = [row[0] for row in result.all()]
+    return {"types": types}

@@ -131,6 +131,7 @@ async def list_broadcasts(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     status_filter: Optional[BroadcastStatus] = None,
+    bot_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -139,6 +140,9 @@ async def list_broadcasts(
 
     if status_filter:
         query = query.where(Broadcast.status == status_filter)
+    if bot_id is not None:
+        # Filter broadcasts that target this specific bot (JSON array contains)
+        query = query.where(Broadcast.target_bots.contains([bot_id]))
 
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())

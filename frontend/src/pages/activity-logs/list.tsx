@@ -30,6 +30,13 @@ const actionColors: Record<string, string> = {
   start: 'purple',
   help: 'orange',
   error: 'red',
+  // Music bot actions
+  music_download: 'green',
+  music_search: 'blue',
+  shazam_recognize: 'purple',
+  lyrics_shown: 'cyan',
+  flyer_ad_shown: 'gold',
+  flyer_sub_completed: 'lime',
 };
 
 export const LogList = () => {

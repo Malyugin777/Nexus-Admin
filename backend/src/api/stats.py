@@ -13,8 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..redis_client import get_redis
 from ..config import settings
-from ..models import Bot, User, BotUser, Broadcast, ActionLog, DownloadError, BotStatus, BroadcastStatus, APISource
-from ..schemas import StatsResponse, LoadChartResponse, ChartDataPoint, PerformanceResponse, PlatformPerformance, APIUsageResponse, APIUsageStats
+from ..models import Bot, User, BotUser, Broadcast, ActionLog, DownloadError, BotStatus, BroadcastStatus
+from ..schemas import StatsResponse, LoadChartResponse, ChartDataPoint, PerformanceResponse, PlatformPerformance
+
+# Actions that count as "successful operations" for stats (multi-bot)
+SUCCESS_ACTIONS = ["download_success", "music_download"]
 from ..auth import get_current_user
 
 
@@ -85,7 +88,7 @@ async def get_stats(
     # Downloads in period
     query = select(func.count(ActionLog.id)).where(
         ActionLog.created_at >= since,
-        ActionLog.action == "download_success"
+        ActionLog.action.in_(SUCCESS_ACTIONS)
     )
     if bot_id is not None:
         query = query.where(ActionLog.bot_id == bot_id)
@@ -94,7 +97,7 @@ async def get_stats(
 
     # Total downloads
     query = select(func.count(ActionLog.id)).where(
-        ActionLog.action == "download_success"
+        ActionLog.action.in_(SUCCESS_ACTIONS)
     )
     if bot_id is not None:
         query = query.where(ActionLog.bot_id == bot_id)
@@ -170,7 +173,7 @@ async def get_load_chart(
         func.count(ActionLog.id).label("count")
     ).where(
         ActionLog.created_at >= start_date,
-        ActionLog.action == "download_success"
+        ActionLog.action.in_(SUCCESS_ACTIONS)
     )
     if bot_id is not None:
         query = query.where(ActionLog.bot_id == bot_id)
@@ -246,7 +249,7 @@ async def get_platform_stats(
     # Try to use PostgreSQL JSON extraction for 'platform' field first
     # Then fall back to parsing 'info' field for older records
     query = select(ActionLog.details).where(
-        ActionLog.action == "download_success",
+        ActionLog.action.in_(SUCCESS_ACTIONS),
         ActionLog.created_at >= start_date
     )
     if bot_id is not None:
@@ -302,7 +305,7 @@ async def get_performance_stats(
         func.avg(ActionLog.download_speed_kbps).label('avg_speed'),
         func.count(ActionLog.id).label('total')
     ).where(
-        ActionLog.action == "download_success",
+        ActionLog.action.in_(SUCCESS_ACTIONS),
         ActionLog.download_time_ms.isnot(None),
         ActionLog.created_at >= start_date
     )
@@ -326,7 +329,7 @@ async def get_performance_stats(
         ActionLog.file_size_bytes,
         ActionLog.download_speed_kbps
     ).where(
-        ActionLog.action == "download_success",
+        ActionLog.action.in_(SUCCESS_ACTIONS),
         ActionLog.download_time_ms.isnot(None),
         ActionLog.created_at >= start_date
     )
@@ -388,15 +391,14 @@ async def get_performance_stats(
     )
 
 
-@router.get("/api-usage", response_model=APIUsageResponse)
+@router.get("/api-usage")
 async def get_api_usage(
     bot_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
     """
-    Get API usage statistics (RapidAPI, yt-dlp, Cobalt).
-    Optimized: 2 queries instead of 6.
+    Get API usage statistics — dynamic, shows all api_source values from DB.
     """
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -407,7 +409,7 @@ async def get_api_usage(
         func.count(ActionLog.id).label("count")
     ).where(
         ActionLog.created_at >= today_start,
-        ActionLog.action == "download_success",
+        ActionLog.action.in_(SUCCESS_ACTIONS),
         ActionLog.api_source.isnot(None)
     )
     if bot_id is not None:
@@ -421,7 +423,7 @@ async def get_api_usage(
         func.count(ActionLog.id).label("count")
     ).where(
         ActionLog.created_at >= month_start,
-        ActionLog.action == "download_success",
+        ActionLog.action.in_(SUCCESS_ACTIONS),
         ActionLog.api_source.isnot(None)
     )
     if bot_id is not None:
@@ -429,34 +431,22 @@ async def get_api_usage(
     result = await db.execute(query.group_by(ActionLog.api_source))
     month_counts = {row.api_source: row.count for row in result}
 
-    # Extract counts for each API
-    rapidapi_today = today_counts.get(APISource.RAPIDAPI, 0)
-    rapidapi_month = month_counts.get(APISource.RAPIDAPI, 0)
-    ytdlp_today = today_counts.get(APISource.YTDLP, 0)
-    ytdlp_month = month_counts.get(APISource.YTDLP, 0)
-    cobalt_today = today_counts.get(APISource.COBALT, 0)
-    cobalt_month = month_counts.get(APISource.COBALT, 0)
+    # Known limits (per month)
+    LIMITS = {
+        "rapidapi": 6000,
+    }
 
-    # RapidAPI limit: 6000 per month (hardcoded for now)
-    rapidapi_limit = 6000
+    # Build dynamic response — all sources that have any usage
+    all_sources = set(today_counts.keys()) | set(month_counts.keys())
+    sources = {}
+    for source in sorted(all_sources):
+        sources[source] = {
+            "today": today_counts.get(source, 0),
+            "month": month_counts.get(source, 0),
+            "limit": LIMITS.get(source),
+        }
 
-    return APIUsageResponse(
-        rapidapi=APIUsageStats(
-            today=rapidapi_today,
-            month=rapidapi_month,
-            limit=rapidapi_limit
-        ),
-        ytdlp=APIUsageStats(
-            today=ytdlp_today,
-            month=ytdlp_month,
-            limit=None  # No limit for yt-dlp
-        ),
-        cobalt=APIUsageStats(
-            today=cobalt_today,
-            month=cobalt_month,
-            limit=None  # No limit for Cobalt
-        ) if (cobalt_today > 0 or cobalt_month > 0) else None
-    )
+    return {"sources": sources}
 
 
 @router.get("/flyer", response_model=FlyerStatsResponse)
@@ -477,7 +467,7 @@ async def get_flyer_stats(
     query = select(
         func.count(ActionLog.id).filter(ActionLog.created_at >= today_start).label("today"),
         func.count(ActionLog.id).label("total")
-    ).where(ActionLog.action == "download_success")
+    ).where(ActionLog.action.in_(SUCCESS_ACTIONS))
     if bot_id is not None:
         query = query.where(ActionLog.bot_id == bot_id)
     result = await db.execute(query)

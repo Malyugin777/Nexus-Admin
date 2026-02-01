@@ -240,6 +240,10 @@ export const Dashboard = () => {
     youtube_full: '#FF0000',
     youtube_shorts: '#FF6B6B',
     pinterest: '#E60023',
+    vk_music: '#4A76A8',
+    yandex_music: '#FFCC00',
+    youtube_music: '#FF0000',
+    deezer: '#A238FF',
   };
 
   // Фильтруем мусорные данные
@@ -250,9 +254,14 @@ export const Dashboard = () => {
     .map((p: { name: string; count: number }) => ({
       ...p,
       // Красивые названия
-      displayName: p.name === 'youtube_full' ? 'YouTube Full' :
-                   p.name === 'youtube_shorts' ? 'YouTube Shorts' :
-                   p.name.charAt(0).toUpperCase() + p.name.slice(1),
+      displayName: {
+        youtube_full: 'YouTube Full',
+        youtube_shorts: 'YouTube Shorts',
+        vk_music: 'VK Music',
+        yandex_music: 'Yandex Music',
+        youtube_music: 'YouTube Music',
+        deezer: 'Deezer',
+      }[p.name] || p.name.charAt(0).toUpperCase() + p.name.slice(1),
     }));
 
   // Общее количество для центра

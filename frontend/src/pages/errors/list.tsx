@@ -4,6 +4,7 @@ import { Table, Card, Row, Col, Statistic, Select, Space, Button } from 'antd';
 import { ReloadOutlined, WarningOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useState } from 'react';
+import { ExportButton } from '../../components';
 
 interface DownloadError {
   id: number;
@@ -24,11 +25,20 @@ interface ErrorStats {
   errors_by_type: Record<string, number>;
 }
 
+interface Bot {
+  id: number;
+  name: string;
+}
+
 const platformColors: Record<string, string> = {
   instagram: 'magenta',
   tiktok: 'cyan',
   youtube: 'red',
   pinterest: 'volcano',
+  vk_music: 'blue',
+  yandex_music: 'gold',
+  youtube_music: 'red',
+  deezer: 'purple',
   unknown: 'default',
 };
 
@@ -42,6 +52,26 @@ const errorTypeColors: Record<string, string> = {
 export const ErrorList = () => {
   const [platformFilter, setPlatformFilter] = useState<string | undefined>();
   const [typeFilter, setTypeFilter] = useState<string | undefined>();
+  const [botFilter, setBotFilter] = useState<number | undefined>();
+
+  // Fetch bots for filter dropdown
+  const { data: botsData } = useCustom<{ data: Bot[] }>({
+    url: '/bots',
+    method: 'get',
+    config: { query: { page_size: 100 } },
+  });
+
+  // Fetch dynamic platform list
+  const { data: platformsData } = useCustom<{ platforms: string[] }>({
+    url: '/errors/platforms',
+    method: 'get',
+  });
+
+  // Fetch dynamic error type list
+  const { data: typesData } = useCustom<{ types: string[] }>({
+    url: '/errors/types',
+    method: 'get',
+  });
 
   const { tableProps, tableQueryResult } = useTable<DownloadError>({
     resource: 'errors',
@@ -50,6 +80,7 @@ export const ErrorList = () => {
       permanent: [
         ...(platformFilter ? [{ field: 'platform', operator: 'eq' as const, value: platformFilter }] : []),
         ...(typeFilter ? [{ field: 'error_type', operator: 'eq' as const, value: typeFilter }] : []),
+        ...(botFilter ? [{ field: 'bot_id', operator: 'eq' as const, value: botFilter }] : []),
       ],
     },
   });
@@ -57,17 +88,34 @@ export const ErrorList = () => {
   const { data: statsData } = useCustom<ErrorStats>({
     url: '/errors/stats',
     method: 'get',
+    config: {
+      query: {
+        ...(botFilter && { bot_id: botFilter }),
+      },
+    },
+    queryOptions: {
+      queryKey: ['error-stats', botFilter],
+    },
   });
 
   const stats = statsData?.data;
+  const bots = botsData?.data?.data || [];
+  const platforms = platformsData?.data?.platforms || [];
+  const errorTypes = typesData?.data?.types || [];
 
   return (
     <List
-      title="Ошибки скачивания"
+      title="Ошибки"
       headerButtons={
-        <Button icon={<ReloadOutlined />} onClick={() => tableQueryResult.refetch()}>
-          Обновить
-        </Button>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={() => tableQueryResult.refetch()}>
+            Обновить
+          </Button>
+          <ExportButton
+            resource="errors"
+            filters={{ platform: platformFilter, error_type: typeFilter, bot_id: botFilter }}
+          />
+        </Space>
       }
     >
       {/* Stats Cards */}
@@ -91,40 +139,45 @@ export const ErrorList = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Instagram"
-              value={stats?.errors_by_platform?.instagram || 0}
-              valueStyle={{ color: '#eb2f96' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="TikTok"
-              value={stats?.errors_by_platform?.tiktok || 0}
-              valueStyle={{ color: '#13c2c2' }}
-            />
-          </Card>
-        </Col>
+        {Object.entries(stats?.errors_by_platform || {})
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 2)
+          .map(([platform, count]) => (
+            <Col span={6} key={platform}>
+              <Card>
+                <Statistic
+                  title={platform.charAt(0).toUpperCase() + platform.slice(1)}
+                  value={count}
+                  valueStyle={{ color: '#eb2f96' }}
+                />
+              </Card>
+            </Col>
+          ))}
       </Row>
 
       {/* Filters */}
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Select
+          placeholder="Бот"
+          style={{ width: 150 }}
+          allowClear
+          value={botFilter}
+          onChange={setBotFilter}
+          options={bots.map((bot) => ({
+            label: bot.name,
+            value: bot.id,
+          }))}
+        />
         <Select
           placeholder="Платформа"
           style={{ width: 150 }}
           allowClear
           value={platformFilter}
           onChange={setPlatformFilter}
-          options={[
-            { label: 'Instagram', value: 'instagram' },
-            { label: 'TikTok', value: 'tiktok' },
-            { label: 'YouTube', value: 'youtube' },
-            { label: 'Pinterest', value: 'pinterest' },
-          ]}
+          options={platforms.map((p) => ({
+            label: p.charAt(0).toUpperCase() + p.slice(1),
+            value: p,
+          }))}
         />
         <Select
           placeholder="Тип ошибки"
@@ -132,11 +185,10 @@ export const ErrorList = () => {
           allowClear
           value={typeFilter}
           onChange={setTypeFilter}
-          options={[
-            { label: 'Download Failed', value: 'download_failed' },
-            { label: 'Exception', value: 'exception' },
-            { label: 'Timeout', value: 'timeout' },
-          ]}
+          options={errorTypes.map((t) => ({
+            label: t,
+            value: t,
+          }))}
         />
       </Space>
 
