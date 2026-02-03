@@ -143,21 +143,23 @@ class MarzbanAPI:
         return user.get("subscription_url", "")
 
     async def extend_user(self, username: str, days: int) -> dict:
-        """Extend user subscription by N days."""
+        """Extend user subscription by N days (smart logic)."""
         user = await self.get_user(username)
         current_expire = user.get("expire", 0)
 
-        if current_expire == 0:
-            # No expiration set, start from now
-            new_expire = int((datetime.now() + timedelta(days=days)).timestamp())
+        now = datetime.now()
+        if current_expire == 0 or current_expire < now.timestamp():
+            # No expiration or expired — start from now
+            new_expire = int((now + timedelta(days=days)).timestamp())
         else:
-            # Extend from current expiration
+            # Active — extend from current expiration
             new_expire = current_expire + (days * 24 * 60 * 60)
 
+        # Also reactivate if was disabled
         return await self._request(
             "PUT",
             f"/api/user/{username}",
-            json={"expire": new_expire}
+            json={"expire": new_expire, "status": "active"}
         )
 
     async def reset_traffic(self, username: str) -> dict:
