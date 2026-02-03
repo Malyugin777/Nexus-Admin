@@ -19,7 +19,7 @@ import {
   Progress,
   Typography,
   Tooltip,
-  Radio,
+  Select,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -37,7 +37,6 @@ import { useState } from 'react';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
-const { Search } = Input;
 
 // ============ Interfaces ============
 
@@ -92,7 +91,7 @@ export const PromocodeList = () => {
   const [generatedResult, setGeneratedResult] = useState<GenerateResponse | null>(null);
   const [generateForm] = Form.useForm();
   const [searchText, setSearchText] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'used'>('all');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
 
   // Data fetching
   const { data: statsData, refetch: refetchStats } = useCustom<PromoStats>({
@@ -362,7 +361,7 @@ export const PromocodeList = () => {
           onClick={() => {
             setSelectedBatchId(value);
             setSearchText('');
-            setStatusFilter('all');
+            setStatusFilter(undefined);
           }}
         >
           {value}
@@ -518,38 +517,38 @@ export const PromocodeList = () => {
             label: selectedBatchId ? `Коды (${selectedBatchId})` : 'Все коды',
             children: (
               <>
-                <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }} wrap>
-                  <Space>
-                    {selectedBatchId && (
-                      <>
-                        <Button onClick={() => {
-                          setSelectedBatchId(null);
-                          setSearchText('');
-                          setStatusFilter('all');
-                        }}>
-                          Все коды
-                        </Button>
-                        <Tag color="blue">Батч: {selectedBatchId}</Tag>
-                      </>
-                    )}
-                    <Radio.Group
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      optionType="button"
-                      buttonStyle="solid"
-                    >
-                      <Radio.Button value="all">Все</Radio.Button>
-                      <Radio.Button value="active">Активные</Radio.Button>
-                      <Radio.Button value="used">Использованные</Radio.Button>
-                    </Radio.Group>
-                  </Space>
-                  <Search
+                <Space style={{ marginBottom: 16 }}>
+                  <Input
                     placeholder="Поиск по коду или кампании"
+                    prefix={<SearchOutlined />}
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    style={{ width: 250 }}
                     allowClear
-                    style={{ width: 280 }}
-                    onSearch={setSearchText}
-                    onChange={(e) => !e.target.value && setSearchText('')}
                   />
+                  <Select
+                    placeholder="Статус"
+                    style={{ width: 170 }}
+                    allowClear
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={[
+                      { label: 'Активные', value: 'active' },
+                      { label: 'Использованные', value: 'used' },
+                    ]}
+                  />
+                  {selectedBatchId && (
+                    <Button onClick={() => {
+                      setSelectedBatchId(null);
+                      setSearchText('');
+                      setStatusFilter(undefined);
+                    }}>
+                      Сбросить батч
+                    </Button>
+                  )}
+                  {selectedBatchId && (
+                    <Tag color="blue" style={{ marginLeft: 8 }}>Батч: {selectedBatchId}</Tag>
+                  )}
                 </Space>
                 <Table
                   dataSource={filteredCodes}
