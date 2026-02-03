@@ -27,6 +27,7 @@ import {
   PlusOutlined,
   StopOutlined,
   CopyOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -162,6 +163,27 @@ export const VPNUserProfile = () => {
     }
   };
 
+  const handleEnable = async (subscriptionId: number) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/vpn/subscriptions/${subscriptionId}/enable`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        message.success('Подписка включена');
+        refetch();
+      } else {
+        message.error('Ошибка при включении');
+      }
+    } catch {
+      message.error('Ошибка при включении');
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     message.success('Скопировано');
@@ -288,6 +310,16 @@ export const VPNUserProfile = () => {
                 <Button size="small" danger icon={<StopOutlined />} title="Отключить" />
               </Popconfirm>
             </>
+          )}
+          {record.status === 'cancelled' && (
+            <Popconfirm
+              title="Включить подписку?"
+              onConfirm={() => handleEnable(record.id)}
+              okText="Да"
+              cancelText="Нет"
+            >
+              <Button size="small" type="primary" icon={<PlayCircleOutlined />} title="Включить" />
+            </Popconfirm>
           )}
           {record.subscription_url && (
             <Button

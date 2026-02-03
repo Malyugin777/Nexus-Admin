@@ -1,8 +1,11 @@
 """
 VPN Subscriptions API endpoints.
 """
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, and_
@@ -398,10 +401,17 @@ async def disable_vpn_subscription(
         )
 
     sub.status = VPNSubscriptionStatus.cancelled
+
+    # Disable in Marzban
+    if sub.marzban_username and marzban_api.is_configured():
+        try:
+            await marzban_api.disable_user(sub.marzban_username)
+            logger.info(f"Disabled user {sub.marzban_username} in Marzban")
+        except MarzbanAPIError as e:
+            logger.warning(f"Failed to disable {sub.marzban_username} in Marzban: {e}")
+
     await db.flush()
     await db.refresh(sub)
-
-    # TODO: Also disable user in Marzban
 
     return VPNSubscriptionResponse(
         id=sub.id,
@@ -447,14 +457,79 @@ async def extend_vpn_subscription(
     base_date = sub.expires_at if sub.expires_at and sub.expires_at > datetime.utcnow() else datetime.utcnow()
     sub.expires_at = base_date + timedelta(days=days)
 
-    # If was expired, reactivate
-    if sub.status == VPNSubscriptionStatus.expired:
+    # Extend in Marzban
+    if sub.marzban_username and marzban_api.is_configured():
+        try:
+            await marzban_api.extend_user(sub.marzban_username, days)
+            logger.info(f"Extended {sub.marzban_username} by {days} days in Marzban")
+        except MarzbanAPIError as e:
+            logger.warning(f"Failed to extend {sub.marzban_username} in Marzban: {e}")
+
+    # If was expired or cancelled, reactivate
+    if sub.status in (VPNSubscriptionStatus.expired, VPNSubscriptionStatus.cancelled):
         sub.status = VPNSubscriptionStatus.active
+        # Also enable in Marzban
+        if sub.marzban_username and marzban_api.is_configured():
+            try:
+                await marzban_api.enable_user(sub.marzban_username)
+                logger.info(f"Enabled {sub.marzban_username} in Marzban")
+            except MarzbanAPIError as e:
+                logger.warning(f"Failed to enable {sub.marzban_username} in Marzban: {e}")
 
     await db.flush()
     await db.refresh(sub)
 
-    # TODO: Also extend user in Marzban
+    return VPNSubscriptionResponse(
+        id=sub.id,
+        telegram_id=sub.telegram_id,
+        plan_type=sub.plan_type,
+        protocol=sub.protocol,
+        status=sub.status,
+        marzban_username=sub.marzban_username,
+        subscription_url=sub.subscription_url,
+        traffic_limit_gb=sub.traffic_limit_gb,
+        traffic_used_gb=float(sub.traffic_used_gb or 0),
+        started_at=sub.started_at,
+        expires_at=sub.expires_at,
+        created_at=sub.created_at,
+        updated_at=sub.updated_at,
+        days_remaining=calculate_days_remaining(sub.expires_at),
+        traffic_percent=calculate_traffic_percent(
+            float(sub.traffic_used_gb or 0), sub.traffic_limit_gb
+        ),
+    )
+
+
+@router.post("/subscriptions/{subscription_id}/enable", response_model=VPNSubscriptionResponse)
+async def enable_vpn_subscription(
+    subscription_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Enable (reactivate) a cancelled VPN subscription."""
+    result = await db.execute(
+        select(VPNSubscription).where(VPNSubscription.id == subscription_id)
+    )
+    sub = result.scalar_one_or_none()
+
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subscription not found",
+        )
+
+    sub.status = VPNSubscriptionStatus.active
+
+    # Enable in Marzban
+    if sub.marzban_username and marzban_api.is_configured():
+        try:
+            await marzban_api.enable_user(sub.marzban_username)
+            logger.info(f"Enabled {sub.marzban_username} in Marzban")
+        except MarzbanAPIError as e:
+            logger.warning(f"Failed to enable {sub.marzban_username} in Marzban: {e}")
+
+    await db.flush()
+    await db.refresh(sub)
 
     return VPNSubscriptionResponse(
         id=sub.id,
