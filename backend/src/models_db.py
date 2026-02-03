@@ -418,3 +418,40 @@ class VPNReferral(Base):
     # Relationships
     referrer = relationship("User", foreign_keys=[referrer_id], backref="referrals_made")
     referred = relationship("User", foreign_keys=[referred_id])
+
+
+# =============================================================================
+# Promocode Models
+# =============================================================================
+
+class Promocode(Base):
+    """Promocode / voucher model."""
+    __tablename__ = "promocodes"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    batch_id = Column(String(50), nullable=True, index=True)
+    campaign_name = Column(String(255), nullable=True)
+    days = Column(Integer, nullable=False)
+    traffic_gb = Column(Integer, default=100)
+    max_activations = Column(Integer, default=1)
+    current_activations = Column(Integer, default=0)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    activations = relationship("PromocodeActivation", back_populates="promocode")
+
+
+class PromocodeActivation(Base):
+    """Promocode activation record."""
+    __tablename__ = "promocode_activations"
+
+    id = Column(Integer, primary_key=True)
+    promocode_id = Column(Integer, ForeignKey("promocodes.id"), nullable=False)
+    telegram_id = Column(BigInteger, nullable=False, index=True)
+    marzban_username = Column(String(255), nullable=True)
+    activated_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    promocode = relationship("Promocode", back_populates="activations")

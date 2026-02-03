@@ -479,3 +479,48 @@ class VPNStatsResponse(BaseModel):
     by_plan: dict = {}
     # By protocol breakdown
     by_protocol: dict = {}
+
+
+# =============================================================================
+# Promocode Schemas
+# =============================================================================
+
+class PromoGenerateRequest(BaseModel):
+    prefix: str = Field(..., min_length=2, max_length=10, description="Code prefix (e.g., 'INSTA')")
+    count: int = Field(..., ge=1, le=1000, description="Number of codes to generate")
+    days: int = Field(..., ge=1, le=365, description="Days of VPN access")
+    traffic_gb: int = Field(100, ge=0, description="Traffic limit in GB (0 = unlimited)")
+    max_activations: int = Field(1, ge=1, description="Max activations per code")
+    campaign_name: str = Field(..., min_length=1, max_length=255, description="Campaign name")
+
+
+class PromoCodeResponse(BaseModel):
+    id: int
+    code: str
+    batch_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    days: int
+    traffic_gb: int
+    max_activations: int
+    current_activations: int
+    active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PromoBatchResponse(BaseModel):
+    batch_id: str
+    campaign_name: Optional[str] = None
+    codes_count: int
+    total_activations: int
+    active_codes: int
+    created_at: datetime
+
+
+class PromoGenerateResponse(BaseModel):
+    batch_id: str
+    codes: list[str]
+    count: int
+    campaign_name: str

@@ -35,6 +35,9 @@ from src.models_db import (
     VPNSubscription,
     VPNPayment,
     VPNReferral,
+    # Promocode Models
+    Promocode,
+    PromocodeActivation,
 )
 
 __all__ = [
@@ -70,4 +73,7 @@ __all__ = [
     'VPNSubscription',
     'VPNPayment',
     'VPNReferral',
+    # Promocode Models
+    'Promocode',
+    'PromocodeActivation',
 ]
