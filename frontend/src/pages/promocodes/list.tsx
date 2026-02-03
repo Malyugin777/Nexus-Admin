@@ -19,6 +19,7 @@ import {
   Progress,
   Typography,
   Tooltip,
+  Radio,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -30,11 +31,13 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   GiftOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
+const { Search } = Input;
 
 // ============ Interfaces ============
 
@@ -88,6 +91,8 @@ export const PromocodeList = () => {
   const [generateLoading, setGenerateLoading] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<GenerateResponse | null>(null);
   const [generateForm] = Form.useForm();
+  const [searchText, setSearchText] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'used'>('all');
 
   // Data fetching
   const { data: statsData, refetch: refetchStats } = useCustom<PromoStats>({
@@ -111,6 +116,24 @@ export const PromocodeList = () => {
   const stats = statsData?.data;
   const batches = batchesData?.data || [];
   const codes = codesData?.data || [];
+
+  // Client-side filtering
+  const filteredCodes = codes.filter((code) => {
+    // Search filter
+    const matchesSearch = searchText === '' ||
+      code.code.toLowerCase().includes(searchText.toLowerCase()) ||
+      (code.campaign_name?.toLowerCase().includes(searchText.toLowerCase()) ?? false);
+
+    // Status filter
+    let matchesStatus = true;
+    if (statusFilter === 'active') {
+      matchesStatus = code.active && code.current_activations < code.max_activations;
+    } else if (statusFilter === 'used') {
+      matchesStatus = !code.active || code.current_activations >= code.max_activations;
+    }
+
+    return matchesSearch && matchesStatus;
+  });
 
   // Handlers
   const handleRefresh = () => {
@@ -332,7 +355,19 @@ export const PromocodeList = () => {
       title: 'Batch',
       dataIndex: 'batch_id',
       key: 'batch_id',
-      render: (value: string | null) => value ? <Tag color="blue">{value}</Tag> : '-',
+      render: (value: string | null) => value ? (
+        <Tag
+          color="blue"
+          style={{ cursor: 'pointer' }}
+          onClick={() => {
+            setSelectedBatchId(value);
+            setSearchText('');
+            setStatusFilter('all');
+          }}
+        >
+          {value}
+        </Tag>
+      ) : '-',
     },
     {
       title: 'Кампания',
@@ -349,11 +384,13 @@ export const PromocodeList = () => {
       title: 'Трафик',
       dataIndex: 'traffic_gb',
       key: 'traffic_gb',
+      sorter: (a: PromoCode, b: PromoCode) => a.traffic_gb - b.traffic_gb,
       render: (value: number) => value === 0 ? 'Безлимит' : `${value} GB`,
     },
     {
       title: 'Активаций',
       key: 'activations',
+      sorter: (a: PromoCode, b: PromoCode) => a.current_activations - b.current_activations,
       render: (_: unknown, record: PromoCode) => (
         <Tag color={record.current_activations >= record.max_activations ? 'red' : 'green'}>
           {record.current_activations}/{record.max_activations}
@@ -374,6 +411,8 @@ export const PromocodeList = () => {
       title: 'Создан',
       dataIndex: 'created_at',
       key: 'created_at',
+      sorter: (a: PromoCode, b: PromoCode) => dayjs(a.created_at).unix() - dayjs(b.created_at).unix(),
+      defaultSortOrder: 'descend' as const,
       render: (value: string) => dayjs(value).format('DD.MM.YY'),
     },
     {
@@ -479,16 +518,41 @@ export const PromocodeList = () => {
             label: selectedBatchId ? `Коды (${selectedBatchId})` : 'Все коды',
             children: (
               <>
-                {selectedBatchId && (
-                  <Space style={{ marginBottom: 16 }}>
-                    <Button onClick={() => setSelectedBatchId(null)}>
-                      Показать все коды
-                    </Button>
-                    <Tag color="blue">Фильтр: {selectedBatchId}</Tag>
+                <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }} wrap>
+                  <Space>
+                    {selectedBatchId && (
+                      <>
+                        <Button onClick={() => {
+                          setSelectedBatchId(null);
+                          setSearchText('');
+                          setStatusFilter('all');
+                        }}>
+                          Все коды
+                        </Button>
+                        <Tag color="blue">Батч: {selectedBatchId}</Tag>
+                      </>
+                    )}
+                    <Radio.Group
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      optionType="button"
+                      buttonStyle="solid"
+                    >
+                      <Radio.Button value="all">Все</Radio.Button>
+                      <Radio.Button value="active">Активные</Radio.Button>
+                      <Radio.Button value="used">Использованные</Radio.Button>
+                    </Radio.Group>
                   </Space>
-                )}
+                  <Search
+                    placeholder="Поиск по коду или кампании"
+                    allowClear
+                    style={{ width: 280 }}
+                    onSearch={setSearchText}
+                    onChange={(e) => !e.target.value && setSearchText('')}
+                  />
+                </Space>
                 <Table
-                  dataSource={codes}
+                  dataSource={filteredCodes}
                   columns={codeColumns}
                   rowKey="id"
                   loading={codesLoading}
