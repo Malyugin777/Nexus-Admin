@@ -23,3 +23,6 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Secrets (local storage for credentials/keys)
+secrets/

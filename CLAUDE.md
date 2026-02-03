@@ -66,7 +66,12 @@ nexus-admin/
     └── deploy.yml         # Автодеплой
 ```
 
+## Secrets (локальное хранилище)
+Каталог `secrets/` (в .gitignore) — хранилище паролей и ключей:
+- `secrets/hostkey.txt` — Hostkey VPN Server (NL)
+
 ## Связанные проекты
+- **TelegramVPN** (C:\Projects\TelegramVPN) — VPN бот, Hostkey NL сервер (82.24.110.167)
 - **TelegramBots** (боты) - Hostkey сервер (66.151.33.167)
 - Используют ту же БД через внешнее подключение
 

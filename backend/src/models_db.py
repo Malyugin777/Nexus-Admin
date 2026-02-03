@@ -312,6 +312,7 @@ class VPNPlanType(str, PyEnum):
     month_1 = "month_1"
     month_3 = "month_3"
     year_1 = "year_1"
+    promo = "promo"
 
 
 class VPNProtocol(str, PyEnum):
