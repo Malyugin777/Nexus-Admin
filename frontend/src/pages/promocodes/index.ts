@@ -1,0 +1,1 @@
+export { PromocodeList } from './list';

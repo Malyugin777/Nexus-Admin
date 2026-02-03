@@ -21,6 +21,7 @@ import {
   SettingOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
+  TagOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -39,6 +40,7 @@ import { Ops } from './pages/ops';
 import { ProfilePage } from './pages/profile';
 import { Login } from './pages/login';
 import { VPNList, VPNEdit, VPNPayments, VPNUserProfile } from './pages/vpn';
+import { PromocodeList } from './pages/promocodes';
 import { LanguageSwitcher, Footer } from './components';
 
 import './i18n';
@@ -163,7 +165,15 @@ function App() {
                 meta: {
                   label: 'VPN Платежи',
                   icon: <DollarOutlined />,
-                  
+
+                },
+              },
+              {
+                name: 'promocodes',
+                list: '/promocodes',
+                meta: {
+                  label: 'Промокоды',
+                  icon: <TagOutlined />,
                 },
               },
             ]}
@@ -290,6 +300,10 @@ function App() {
                   <Route path="edit/:id" element={<VPNEdit />} />
                   <Route path="payments" element={<VPNPayments />} />
                   <Route path="users/:id" element={<VPNUserProfile />} />
+                </Route>
+
+                <Route path="/promocodes">
+                  <Route index element={<PromocodeList />} />
                 </Route>
 
                 <Route path="/profile" element={<ProfilePage />} />
