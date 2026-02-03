@@ -632,9 +632,9 @@ export const VPNList = () => {
             rules={[{ required: true }]}
           >
             <Radio.Group>
-              <Radio.Button value="month_1">1 месяц (100 GB)</Radio.Button>
-              <Radio.Button value="month_3">3 месяца (300 GB)</Radio.Button>
-              <Radio.Button value="year_1">12 месяцев (Безлимит)</Radio.Button>
+              <Radio.Button value="month_1">1 месяц</Radio.Button>
+              <Radio.Button value="month_3">3 месяца</Radio.Button>
+              <Radio.Button value="year_1">12 месяцев</Radio.Button>
             </Radio.Group>
           </Form.Item>
 

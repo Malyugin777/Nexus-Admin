@@ -393,7 +393,7 @@ class VPNSubscriptionBase(BaseModel):
     plan_type: VPNPlanType
     protocol: VPNProtocol = VPNProtocol.vless
     status: VPNSubscriptionStatus = VPNSubscriptionStatus.active
-    traffic_limit_gb: int = 100
+    traffic_limit_gb: int = 0  # 0 = unlimited
 
 
 class VPNSubscriptionCreate(VPNSubscriptionBase):
@@ -489,7 +489,7 @@ class PromoGenerateRequest(BaseModel):
     prefix: str = Field(..., min_length=2, max_length=10, description="Code prefix (e.g., 'INSTA')")
     count: int = Field(..., ge=1, le=1000, description="Number of codes to generate")
     days: int = Field(..., ge=1, le=365, description="Days of VPN access")
-    traffic_gb: int = Field(100, ge=0, description="Traffic limit in GB (0 = unlimited)")
+    traffic_gb: int = Field(0, ge=0, description="Traffic limit in GB (0 = unlimited)")
     max_activations: int = Field(1, ge=1, description="Max activations per code")
     campaign_name: str = Field(..., min_length=1, max_length=255, description="Campaign name")
 

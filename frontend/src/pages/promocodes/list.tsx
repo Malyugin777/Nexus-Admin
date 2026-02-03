@@ -581,7 +581,7 @@ export const PromocodeList = () => {
             initialValues={{
               count: 10,
               days: 30,
-              traffic_gb: 100,
+              traffic_gb: 0,
               max_activations: 1,
             }}
           >

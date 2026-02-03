@@ -359,7 +359,7 @@ class VPNSubscription(Base):
     # Marzban integration
     marzban_username = Column(String(255), unique=True, nullable=False)
     subscription_url = Column(Text, nullable=True)
-    traffic_limit_gb = Column(Integer, default=100)
+    traffic_limit_gb = Column(Integer, default=0)  # 0 = unlimited
     traffic_used_gb = Column(Numeric(10, 2), default=0)
 
     # Dates
@@ -433,7 +433,7 @@ class Promocode(Base):
     batch_id = Column(String(50), nullable=True, index=True)
     campaign_name = Column(String(255), nullable=True)
     days = Column(Integer, nullable=False)
-    traffic_gb = Column(Integer, default=100)
+    traffic_gb = Column(Integer, default=0)  # 0 = unlimited
     max_activations = Column(Integer, default=1)
     current_activations = Column(Integer, default=0)
     active = Column(Boolean, default=True)

@@ -149,7 +149,7 @@ export const VPNEdit = () => {
           </Form.Item>
 
           <Form.Item
-            label="Лимит трафика (GB)"
+            label="Лимит трафика, GB (0 = Безлимит)"
             name="traffic_limit_gb"
           >
             <InputNumber min={0} style={{ width: 200 }} />

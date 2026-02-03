@@ -92,7 +92,7 @@ class MarzbanAPI:
     async def create_user(
         self,
         username: str,
-        data_limit_gb: int = 100,
+        data_limit_gb: int = 0,  # 0 = unlimited
         expire_days: int = 30,
         protocol: str = "vless",
     ) -> dict:

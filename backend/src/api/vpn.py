@@ -40,8 +40,8 @@ PLAN_PRICES = {
 
 # Plan configuration (days and traffic)
 PLAN_CONFIG = {
-    VPNPlanType.month_1: {"days": 30, "traffic_gb": 100},
-    VPNPlanType.month_3: {"days": 90, "traffic_gb": 300},
+    VPNPlanType.month_1: {"days": 30, "traffic_gb": 0},  # 0 = unlimited
+    VPNPlanType.month_3: {"days": 90, "traffic_gb": 0},  # 0 = unlimited
     VPNPlanType.year_1: {"days": 365, "traffic_gb": 0},  # 0 = unlimited
     VPNPlanType.promo: {"days": 0, "traffic_gb": 0},  # Variable from promocode
 }
