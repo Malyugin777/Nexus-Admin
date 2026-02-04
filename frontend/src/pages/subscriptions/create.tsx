@@ -15,6 +15,7 @@ export const SubscriptionCreate = () => {
         layout="vertical"
         initialValues={{
           provider: 'other',
+          category: 'other',
           currency: 'RUB',
           billing_cycle: 'monthly',
           auto_renew: true,
@@ -66,7 +67,20 @@ export const SubscriptionCreate = () => {
               label="IP адрес"
               name="ip_address"
             >
-              <Input placeholder="185.96.80.254" style={{ width: 200 }} />
+              <Input placeholder="185.96.80.254" style={{ width: 150 }} />
+            </Form.Item>
+
+            <Form.Item
+              label="Категория"
+              name="category"
+            >
+              <Select style={{ width: 160 }}>
+                <Select.Option value="infrastructure">Инфраструктура</Select.Option>
+                <Select.Option value="vpn">VPN Узлы</Select.Option>
+                <Select.Option value="domain">Домены</Select.Option>
+                <Select.Option value="api">API Сервисы</Select.Option>
+                <Select.Option value="other">Прочее</Select.Option>
+              </Select>
             </Form.Item>
           </Space>
         </Card>

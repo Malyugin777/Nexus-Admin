@@ -6,17 +6,22 @@ import {
   CreateButton,
   TagField,
 } from '@refinedev/antd';
-import { Table, Space, Select, Button, Card, Row, Col, Statistic, Tooltip } from 'antd';
+import { Table, Space, Button, Card, Row, Col, Statistic, Tooltip, Typography } from 'antd';
 import {
   ReloadOutlined,
   DollarOutlined,
   CalendarOutlined,
   LinkOutlined,
   ClockCircleOutlined,
+  CloudServerOutlined,
+  SafetyCertificateOutlined,
+  GlobalOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
-import { useState } from 'react';
 import dayjs from 'dayjs';
 import { ExportButton } from '../../components';
+
+const { Title } = Typography;
 
 interface Subscription {
   id: number;
@@ -25,6 +30,7 @@ interface Subscription {
   provider: string;
   provider_url: string | null;
   ip_address: string | null;
+  category: string;
   amount: number;
   currency: string;
   billing_cycle: string;
@@ -53,54 +59,173 @@ const providerColors: Record<string, string> = {
 };
 
 const providerLabels: Record<string, string> = {
-  aeza: 'Aeza VPS', AEZA: 'Aeza VPS',
-  hostkey: 'Hostkey VPS', HOSTKEY: 'Hostkey VPS',
+  aeza: 'Aeza', AEZA: 'Aeza',
+  hostkey: 'Hostkey', HOSTKEY: 'Hostkey',
   rapidapi: 'RapidAPI', RAPIDAPI: 'RapidAPI',
-  domain: 'Домен', DOMAIN: 'Домен',
+  domain: 'Regway', DOMAIN: 'Regway',
   github: 'GitHub', GITHUB: 'GitHub',
   other: 'Другое', OTHER: 'Другое',
 };
 
 const cycleLabels: Record<string, string> = {
-  monthly: 'Ежемесячно', MONTHLY: 'Ежемесячно',
-  yearly: 'Ежегодно', YEARLY: 'Ежегодно',
-  usage: 'По использованию', USAGE: 'По использованию',
+  monthly: '/мес', MONTHLY: '/мес',
+  yearly: '/год', YEARLY: '/год',
+  usage: '/исп', USAGE: '/исп',
 };
 
-export const SubscriptionList = () => {
-  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+const categoryConfig: Record<string, { icon: React.ReactNode; title: string; color: string }> = {
+  infrastructure: { icon: <CloudServerOutlined />, title: 'Инфраструктура', color: '#1890ff' },
+  vpn: { icon: <SafetyCertificateOutlined />, title: 'VPN Узлы', color: '#52c41a' },
+  domain: { icon: <GlobalOutlined />, title: 'Домены', color: '#722ed1' },
+  api: { icon: <ApiOutlined />, title: 'API Сервисы', color: '#fa8c16' },
+  other: { icon: <CloudServerOutlined />, title: 'Прочее', color: '#8c8c8c' },
+};
 
-  const { tableProps, tableQueryResult } = useTable<Subscription>({
+const SubscriptionTable = ({ data, showIP = true }: { data: Subscription[]; showIP?: boolean }) => (
+  <Table dataSource={data} rowKey="id" pagination={false} size="small">
+    <Table.Column
+      dataIndex="name"
+      title="Название"
+      render={(value: string, record: Subscription) => (
+        <Space direction="vertical" size={0}>
+          <strong>{value}</strong>
+          {record.description && (
+            <span style={{ fontSize: 11, color: '#888' }}>{record.description}</span>
+          )}
+        </Space>
+      )}
+    />
+    {showIP && (
+      <Table.Column
+        dataIndex="ip_address"
+        title="IP"
+        width={130}
+        render={(value: string | null) =>
+          value ? <code style={{ fontSize: 12 }}>{value}</code> : <span style={{ color: '#888' }}>—</span>
+        }
+      />
+    )}
+    <Table.Column
+      dataIndex="provider"
+      title="Провайдер"
+      width={100}
+      render={(value: string, record: Subscription) => (
+        <Space>
+          <TagField color={providerColors[value] || 'default'} value={providerLabels[value] || value} />
+          {record.provider_url && (
+            <Tooltip title="Открыть ЛК">
+              <a href={record.provider_url} target="_blank" rel="noopener noreferrer">
+                <LinkOutlined />
+              </a>
+            </Tooltip>
+          )}
+        </Space>
+      )}
+    />
+    <Table.Column
+      dataIndex="amount"
+      title="Цена"
+      width={100}
+      render={(value: number, record: Subscription) => (
+        <span style={{ fontWeight: 500 }}>
+          {value.toLocaleString()} {record.currency === 'RUB' ? '₽' : record.currency}
+          <span style={{ fontSize: 11, color: '#888' }}>
+            {cycleLabels[record.billing_cycle] || ''}
+          </span>
+        </span>
+      )}
+    />
+    <Table.Column
+      dataIndex="next_payment_date"
+      title="Платёж"
+      width={110}
+      render={(value: string | null, record: Subscription) => {
+        if (!value) return <span style={{ color: '#888' }}>—</span>;
+        const days = record.days_until_payment;
+        let color = '#888';
+        if (days !== null) {
+          if (days <= 1) color = '#ff4d4f';
+          else if (days <= 3) color = '#faad14';
+          else if (days <= 7) color = '#1890ff';
+        }
+        return (
+          <Space direction="vertical" size={0}>
+            <span>{dayjs(value).format('DD.MM.YYYY')}</span>
+            {days !== null && (
+              <span style={{ fontSize: 11, color }}>
+                {days === 0 ? 'Сегодня!' : days === 1 ? 'Завтра' : `${days} дн.`}
+              </span>
+            )}
+          </Space>
+        );
+      }}
+    />
+    <Table.Column
+      dataIndex="status"
+      title="Статус"
+      width={90}
+      render={(value: string) => {
+        const v = value?.toUpperCase();
+        return (
+          <TagField
+            color={statusColors[value] || 'default'}
+            value={v === 'ACTIVE' ? 'Активна' : v === 'CANCELLED' ? 'Отменена' : 'Истекла'}
+          />
+        );
+      }}
+    />
+    <Table.Column
+      title=""
+      width={80}
+      render={(_, record: Subscription) => (
+        <Space>
+          <EditButton hideText size="small" recordItemId={record.id} />
+          <DeleteButton hideText size="small" recordItemId={record.id} />
+        </Space>
+      )}
+    />
+  </Table>
+);
+
+export const SubscriptionList = () => {
+  const { tableQueryResult } = useTable<Subscription>({
     resource: 'subscriptions',
-    syncWithLocation: true,
-    filters: {
-      permanent: [
-        ...(statusFilter ? [{ field: 'status_filter', operator: 'eq' as const, value: statusFilter }] : []),
-      ],
-    },
+    syncWithLocation: false,
+    pagination: { mode: 'off' },
   });
 
-  // Calculate totals
   const data = tableQueryResult.data?.data || [];
-  const activeSubscriptions = data.filter((s: Subscription) => s.status === 'active' || s.status === 'ACTIVE');
+  const activeSubscriptions = data.filter((s) => s.status === 'active' || s.status === 'ACTIVE');
+
+  // Calculate monthly total (convert EUR to RUB ~100)
   const monthlyTotal = activeSubscriptions
-    .filter((s: Subscription) => s.billing_cycle === 'monthly' || s.billing_cycle === 'MONTHLY')
-    .reduce((sum: number, s: Subscription) => sum + (s.currency === 'RUB' ? s.amount : s.amount * 90), 0);
+    .filter((s) => s.billing_cycle === 'monthly' || s.billing_cycle === 'MONTHLY')
+    .reduce((sum, s) => {
+      if (s.currency === 'RUB') return sum + s.amount;
+      if (s.currency === 'EUR') return sum + s.amount * 100;
+      if (s.currency === 'USD') return sum + s.amount * 90;
+      return sum + s.amount;
+    }, 0);
+
   const upcomingPayments = activeSubscriptions.filter(
-    (s: Subscription) => s.days_until_payment !== null && s.days_until_payment <= 7
+    (s) => s.days_until_payment !== null && s.days_until_payment <= 7
   );
+
+  // Group by category
+  const infrastructure = data.filter((s) => s.category === 'infrastructure');
+  const vpn = data.filter((s) => s.category === 'vpn');
+  const domains = data.filter((s) => s.category === 'domain');
+  const api = data.filter((s) => s.category === 'api');
+  const other = data.filter((s) => !['infrastructure', 'vpn', 'domain', 'api'].includes(s.category));
 
   return (
     <List
       headerButtons={({ createButtonProps }) => (
         <Space>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => tableQueryResult.refetch()}
-          >
+          <Button icon={<ReloadOutlined />} onClick={() => tableQueryResult.refetch()}>
             Обновить
           </Button>
-          <ExportButton resource="subscriptions" filters={{ is_active: statusFilter === 'active' ? true : undefined }} />
+          <ExportButton resource="subscriptions" />
           <CreateButton {...createButtonProps} />
         </Space>
       )}
@@ -110,7 +235,7 @@ export const SubscriptionList = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Активных подписок"
+              title="Активных"
               value={activeSubscriptions.length}
               prefix={<ClockCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
@@ -120,7 +245,7 @@ export const SubscriptionList = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Ежемесячно (RUB)"
+              title="Ежемесячно"
               value={monthlyTotal}
               prefix={<DollarOutlined />}
               precision={0}
@@ -140,137 +265,94 @@ export const SubscriptionList = () => {
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="Всего подписок"
-              value={data.length}
-            />
+            <Statistic title="Всего" value={data.length} />
           </Card>
         </Col>
       </Row>
 
-      {/* Filters */}
-      <Space style={{ marginBottom: 16 }}>
-        <Select
-          placeholder="Статус"
-          style={{ width: 150 }}
-          allowClear
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { label: 'Активные', value: 'active' },
-            { label: 'Отменённые', value: 'cancelled' },
-            { label: 'Истекшие', value: 'expired' },
-          ]}
-        />
-      </Space>
-
-      <Table {...tableProps} rowKey="id">
-        <Table.Column
-          dataIndex="name"
-          title="Название"
-          render={(value: string, record: Subscription) => (
-            <Space direction="vertical" size={0}>
-              <strong>{value}</strong>
-              {record.description && (
-                <span style={{ fontSize: 12, color: '#888' }}>{record.description}</span>
-              )}
+      {/* Infrastructure Section */}
+      {infrastructure.length > 0 && (
+        <Card
+          title={
+            <Space>
+              <CloudServerOutlined style={{ color: categoryConfig.infrastructure.color }} />
+              <span>Инфраструктура</span>
+              <TagField color="blue" value={`${infrastructure.length}`} />
             </Space>
-          )}
-        />
-        <Table.Column
-          dataIndex="ip_address"
-          title="IP"
-          render={(value: string | null) =>
-            value ? <code style={{ fontSize: 12 }}>{value}</code> : <span style={{ color: '#888' }}>—</span>
           }
-        />
-        <Table.Column
-          dataIndex="provider"
-          title="Провайдер"
-          render={(value: string, record: Subscription) => (
-            <Space>
-              <TagField color={providerColors[value] || 'default'} value={providerLabels[value] || value} />
-              {record.provider_url && (
-                <Tooltip title="Открыть ЛК">
-                  <a href={record.provider_url} target="_blank" rel="noopener noreferrer">
-                    <LinkOutlined />
-                  </a>
-                </Tooltip>
-              )}
-            </Space>
-          )}
-        />
-        <Table.Column
-          dataIndex="amount"
-          title="Стоимость"
-          render={(value: number, record: Subscription) => (
-            <span style={{ fontWeight: 500 }}>
-              {value.toLocaleString()} {record.currency === 'RUB' ? '₽' : record.currency}
-              <span style={{ fontSize: 12, color: '#888', marginLeft: 4 }}>
-                / {cycleLabels[record.billing_cycle] || record.billing_cycle}
-              </span>
-            </span>
-          )}
-        />
-        <Table.Column
-          dataIndex="next_payment_date"
-          title="Следующий платёж"
-          render={(value: string | null, record: Subscription) => {
-            if (!value) return <span style={{ color: '#888' }}>—</span>;
+          style={{ marginBottom: 16 }}
+          size="small"
+        >
+          <SubscriptionTable data={infrastructure} />
+        </Card>
+      )}
 
-            const days = record.days_until_payment;
-            let color = undefined;
-            if (days !== null) {
-              if (days <= 1) color = '#ff4d4f';
-              else if (days <= 3) color = '#faad14';
-              else if (days <= 7) color = '#1890ff';
-            }
-
-            return (
-              <Space direction="vertical" size={0}>
-                <span>{dayjs(value).format('DD.MM.YYYY')}</span>
-                {days !== null && (
-                  <span style={{ fontSize: 12, color: color || '#888' }}>
-                    {days === 0 ? 'Сегодня!' : days === 1 ? 'Завтра' : `через ${days} дн.`}
-                  </span>
-                )}
-              </Space>
-            );
-          }}
-        />
-        <Table.Column
-          dataIndex="auto_renew"
-          title="Автопродление"
-          render={(value: boolean) => (
-            <TagField
-              color={value ? 'green' : 'default'}
-              value={value ? 'Да' : 'Нет'}
-            />
-          )}
-        />
-        <Table.Column
-          dataIndex="status"
-          title="Статус"
-          render={(value: string) => {
-            const v = value?.toUpperCase();
-            return (
-              <TagField
-                color={statusColors[value] || 'default'}
-                value={v === 'ACTIVE' ? 'Активна' : v === 'CANCELLED' ? 'Отменена' : 'Истекла'}
-              />
-            );
-          }}
-        />
-        <Table.Column
-          title="Действия"
-          render={(_, record: Subscription) => (
+      {/* VPN Section */}
+      {vpn.length > 0 && (
+        <Card
+          title={
             <Space>
-              <EditButton hideText size="small" recordItemId={record.id} />
-              <DeleteButton hideText size="small" recordItemId={record.id} />
+              <SafetyCertificateOutlined style={{ color: categoryConfig.vpn.color }} />
+              <span>VPN Узлы</span>
+              <TagField color="green" value={`${vpn.length}`} />
             </Space>
-          )}
-        />
-      </Table>
+          }
+          style={{ marginBottom: 16 }}
+          size="small"
+        >
+          <SubscriptionTable data={vpn} />
+        </Card>
+      )}
+
+      {/* Domains Section */}
+      {domains.length > 0 && (
+        <Card
+          title={
+            <Space>
+              <GlobalOutlined style={{ color: categoryConfig.domain.color }} />
+              <span>Домены</span>
+              <TagField color="purple" value={`${domains.length}`} />
+            </Space>
+          }
+          style={{ marginBottom: 16 }}
+          size="small"
+        >
+          <SubscriptionTable data={domains} showIP={false} />
+        </Card>
+      )}
+
+      {/* API Section */}
+      {api.length > 0 && (
+        <Card
+          title={
+            <Space>
+              <ApiOutlined style={{ color: categoryConfig.api.color }} />
+              <span>API Сервисы</span>
+              <TagField color="orange" value={`${api.length}`} />
+            </Space>
+          }
+          style={{ marginBottom: 16 }}
+          size="small"
+        >
+          <SubscriptionTable data={api} showIP={false} />
+        </Card>
+      )}
+
+      {/* Other Section */}
+      {other.length > 0 && (
+        <Card
+          title={
+            <Space>
+              <CloudServerOutlined style={{ color: categoryConfig.other.color }} />
+              <span>Прочее</span>
+              <TagField color="default" value={`${other.length}`} />
+            </Space>
+          }
+          size="small"
+        >
+          <SubscriptionTable data={other} />
+        </Card>
+      )}
     </List>
   );
 };
