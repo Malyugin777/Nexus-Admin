@@ -5,6 +5,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import List
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +48,73 @@ async def login(
     # Update last login
     user.last_login = datetime.utcnow()
 
+    access_token = create_access_token(data={"sub": str(user.id)})
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=settings.jwt_expire_minutes * 60,
+    )
+
+
+@router.post("/login-marzban", response_model=TokenResponse)
+async def login_via_marzban(
+    data: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Login via Marzban credentials (SSO)."""
+    # Check if Marzban is configured
+    if not settings.marzban_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marzban SSO not configured",
+        )
+
+    # 1. Try to authenticate with Marzban
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
+            response = await client.post(
+                f"{settings.marzban_url.rstrip('/')}/api/admin/token",
+                data={"username": data.username, "password": data.password},
+            )
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid Marzban credentials",
+                )
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Marzban unavailable: {str(e)}",
+        )
+
+    # 2. Check if user exists in our DB
+    result = await db.execute(
+        select(AdminUser).where(AdminUser.username == data.username)
+    )
+    user = result.scalar_one_or_none()
+
+    # 3. If not exists - create automatically
+    if not user:
+        user = AdminUser(
+            username=data.username,
+            email=f"{data.username}@marzban.local",
+            password_hash="marzban_sso",  # Not used for SSO users
+            is_superuser=False,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+
+    # 4. Check if user is active
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is disabled",
+        )
+
+    # 5. Update last login
+    user.last_login = datetime.utcnow()
+
+    # 6. Return our JWT token
     access_token = create_access_token(data={"sub": str(user.id)})
     return TokenResponse(
         access_token=access_token,

@@ -4,7 +4,8 @@ import axios from 'axios';
 export const authProvider = (apiUrl: string): AuthProvider => ({
   login: async ({ username, password }) => {
     try {
-      const response = await axios.post(`${apiUrl}/auth/login`, {
+      // Login via Marzban SSO
+      const response = await axios.post(`${apiUrl}/auth/login-marzban`, {
         username,
         password,
       });
@@ -21,7 +22,7 @@ export const authProvider = (apiUrl: string): AuthProvider => ({
         success: false,
         error: {
           name: 'Login Error',
-          message: 'Invalid username or password',
+          message: 'Неверные учетные данные Marzban',
         },
       };
     }
