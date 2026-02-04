@@ -16,6 +16,7 @@ from .flyer_webhook import router as flyer_webhook_router
 from .export import router as export_router
 from .vpn import router as vpn_router
 from .promo import router as promo_router
+from .nodes import router as nodes_router
 
 api_router = APIRouter()
 
@@ -34,3 +35,4 @@ api_router.include_router(flyer_webhook_router, prefix="/flyer-webhook", tags=["
 api_router.include_router(export_router, prefix="/export", tags=["export"])
 api_router.include_router(vpn_router, prefix="/vpn", tags=["vpn"])
 api_router.include_router(promo_router, prefix="/promo", tags=["promo"])
+api_router.include_router(nodes_router, prefix="/nodes", tags=["nodes"])

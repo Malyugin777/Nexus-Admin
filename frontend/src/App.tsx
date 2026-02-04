@@ -22,6 +22,7 @@ import {
   LogoutOutlined,
   SafetyCertificateOutlined,
   TagOutlined,
+  ClusterOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -41,6 +42,7 @@ import { ProfilePage } from './pages/profile';
 import { Login } from './pages/login';
 import { VPNList, VPNEdit, VPNPayments, VPNUserProfile } from './pages/vpn';
 import { PromocodeList } from './pages/promocodes';
+import { NodesList } from './pages/nodes';
 import { LanguageSwitcher, Footer } from './components';
 
 import './i18n';
@@ -176,6 +178,14 @@ function App() {
                   icon: <TagOutlined />,
                 },
               },
+              {
+                name: 'nodes',
+                list: '/nodes',
+                meta: {
+                  label: 'VPN Узлы',
+                  icon: <ClusterOutlined />,
+                },
+              },
             ]}
             options={{
               syncWithLocation: true,
@@ -304,6 +314,10 @@ function App() {
 
                 <Route path="/promocodes">
                   <Route index element={<PromocodeList />} />
+                </Route>
+
+                <Route path="/nodes">
+                  <Route index element={<NodesList />} />
                 </Route>
 
                 <Route path="/profile" element={<ProfilePage />} />

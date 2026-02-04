@@ -186,6 +186,44 @@ class MarzbanAPI:
         """Delete user from Marzban."""
         return await self._request("DELETE", f"/api/user/{username}")
 
+    # ============ System Stats ============
+
+    async def get_system_stats(self) -> dict:
+        """Get Marzban system statistics."""
+        return await self._request("GET", "/api/system")
+
+    # ============ Node Management ============
+
+    async def get_nodes(self) -> list:
+        """Get list of all nodes."""
+        return await self._request("GET", "/api/nodes")
+
+    async def add_node(
+        self,
+        name: str,
+        address: str,
+        port: int = 62050,
+        api_port: int = 62051,
+        usage_coefficient: float = 1.0,
+    ) -> dict:
+        """Add a new node to Marzban cluster."""
+        payload = {
+            "name": name,
+            "address": address,
+            "port": port,
+            "api_port": api_port,
+            "usage_coefficient": usage_coefficient,
+        }
+        return await self._request("POST", "/api/node", json=payload)
+
+    async def delete_node(self, node_id: int) -> dict:
+        """Delete a node from Marzban cluster."""
+        return await self._request("DELETE", f"/api/node/{node_id}")
+
+    async def reconnect_node(self, node_id: int) -> dict:
+        """Reconnect a node."""
+        return await self._request("POST", f"/api/node/{node_id}/reconnect")
+
 
 # Singleton instance
 marzban_api = MarzbanAPI()
