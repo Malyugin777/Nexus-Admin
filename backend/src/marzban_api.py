@@ -45,7 +45,7 @@ class MarzbanAPI:
         if self._token and self._token_expires and datetime.now() < self._token_expires:
             return self._token
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(
                 f"{self.base_url}/api/admin/token",
                 data={
@@ -75,7 +75,7 @@ class MarzbanAPI:
         token = await self._get_token()
         headers = {"Authorization": f"Bearer {token}"}
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=False) as client:
             response = await client.request(
                 method,
                 f"{self.base_url}{endpoint}",
