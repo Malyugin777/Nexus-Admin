@@ -6,6 +6,8 @@ import routerProvider, {
   DocumentTitleHandler,
 } from '@refinedev/react-router-v6';
 import { BrowserRouter, Routes, Route, Outlet, Navigate, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { ConfigProvider, App as AntdApp, theme, Dropdown, Button, Space } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -40,6 +42,7 @@ import { BotMessageList } from './pages/bot-messages';
 import { Ops } from './pages/ops';
 import { ProfilePage } from './pages/profile';
 import { Login } from './pages/login';
+import { Register } from './pages/register';
 import { VPNList, VPNEdit, VPNPayments, VPNUserProfile } from './pages/vpn';
 import { PromocodeList } from './pages/promocodes';
 import { NodesList } from './pages/nodes';
@@ -212,6 +215,23 @@ function App() {
                       )}
                       Header={() => {
                         const navigate = useNavigate();
+                        const [version, setVersion] = useState<string | null>(null);
+
+                        useEffect(() => {
+                          const fetchVersion = async () => {
+                            try {
+                              const token = localStorage.getItem('access_token');
+                              const response = await axios.get('/api/v1/stats', {
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              setVersion(response.data.version);
+                            } catch {
+                              // ignore
+                            }
+                          };
+                          fetchVersion();
+                        }, []);
+
                         const userMenuItems: MenuProps['items'] = [
                           {
                             key: 'profile',
@@ -235,20 +255,24 @@ function App() {
                         return (
                           <div style={{
                             display: 'flex',
-                            justifyContent: 'flex-end',
+                            justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '0 24px',
                             height: '64px',
                             backgroundColor: '#141414',
                             borderBottom: '1px solid #303030',
-                            gap: '16px',
                           }}>
-                            <LanguageSwitcher />
-                            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-                              <Button type="text" icon={<UserOutlined />} style={{ color: '#fff' }}>
-                                Админ
-                              </Button>
-                            </Dropdown>
+                            <div style={{ color: '#666', fontSize: '12px' }}>
+                              {version && `v${version}`}
+                            </div>
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                              <LanguageSwitcher />
+                              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+                                <Button type="text" icon={<UserOutlined />} style={{ color: '#fff' }}>
+                                  Админ
+                                </Button>
+                              </Dropdown>
+                            </div>
                           </div>
                         );
                       }}
@@ -324,6 +348,7 @@ function App() {
               </Route>
 
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
             </Routes>
             <UnsavedChangesNotifier />
             <DocumentTitleHandler />

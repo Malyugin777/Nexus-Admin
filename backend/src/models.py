@@ -38,6 +38,8 @@ from src.models_db import (
     # Promocode Models
     Promocode,
     PromocodeActivation,
+    # Invite Models
+    InviteToken,
 )
 
 __all__ = [
@@ -76,4 +78,6 @@ __all__ = [
     # Promocode Models
     'Promocode',
     'PromocodeActivation',
+    # Invite Models
+    'InviteToken',
 ]

@@ -33,7 +33,11 @@ import {
   SaveOutlined,
   UndoOutlined,
   BranchesOutlined,
+  UserAddOutlined,
+  CopyOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
+import { Input, Modal } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 // ============ Types ============
@@ -163,6 +167,27 @@ interface FallbackStats {
 interface FallbacksResponse {
   entries: FallbackEntry[];
   stats: FallbackStats[];
+  total: number;
+}
+
+// Invite types
+interface InviteToken {
+  id: number;
+  token: string;
+  email: string | null;
+  role: string;
+  created_by: number | null;
+  expires_at: string;
+  used_at: string | null;
+  used_by: number | null;
+  created_at: string;
+  is_expired: boolean;
+  is_used: boolean;
+  invite_url: string | null;
+}
+
+interface InviteListResponse {
+  data: InviteToken[];
   total: number;
 }
 
@@ -362,10 +387,23 @@ export const Ops = () => {
     queryOptions: { queryKey: ['ops-fallbacks', refreshKey, fallbackPeriod] },
   });
 
+  // Invites data
+  const { data: invitesData, isLoading: invitesLoading, refetch: refetchInvites } = useCustom<InviteListResponse>({
+    url: '/auth/invites',
+    method: 'get',
+    queryOptions: { queryKey: ['invites', refreshKey] },
+  });
+
   // State for routing editor
   const [selectedSource, setSelectedSource] = useState<string>('youtube_full');
   const [editedChain, setEditedChain] = useState<ProviderConfig[] | null>(null);
   const [routingSaving, setRoutingSaving] = useState(false);
+
+  // State for invites
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('admin');
+  const [inviteCreating, setInviteCreating] = useState(false);
 
   const platforms = platformsData?.data?.platforms || [];
   const providers = providersData?.data?.providers || [];
@@ -375,6 +413,7 @@ export const Ops = () => {
   const fallbackEntries = fallbacksData?.data?.entries || [];
   const fallbackStats = fallbacksData?.data?.stats || [];
   const fallbackTotal = fallbacksData?.data?.total || 0;
+  const invites = invitesData?.data?.data || [];
 
   // Calculate KPIs
   const totalSuccess = platforms.reduce((sum, p) => sum + p.success, 0);
@@ -509,6 +548,63 @@ export const Ops = () => {
       refetchRouting();
     } catch {
       message.error('Failed to clear override');
+    }
+  };
+
+  // Invite handlers
+  const handleCreateInvite = async () => {
+    setInviteCreating(true);
+    try {
+      const response = await fetch(`${apiUrl}/auth/invites`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: inviteEmail || null,
+          role: inviteRole,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create invite');
+      }
+      const data = await response.json();
+      message.success('Инвайт создан');
+      setInviteModalOpen(false);
+      setInviteEmail('');
+      setInviteRole('admin');
+      refetchInvites();
+      // Copy URL to clipboard
+      if (data.invite_url) {
+        const fullUrl = window.location.origin + data.invite_url.replace(/^[^/]*/, '');
+        navigator.clipboard.writeText(fullUrl);
+        message.info('Ссылка скопирована в буфер обмена');
+      }
+    } catch {
+      message.error('Ошибка создания инвайта');
+    }
+    setInviteCreating(false);
+  };
+
+  const handleCopyInviteUrl = (invite: InviteToken) => {
+    const url = `${window.location.origin}/register?token=${invite.token}`;
+    navigator.clipboard.writeText(url);
+    message.success('Ссылка скопирована');
+  };
+
+  const handleDeleteInvite = async (inviteId: number) => {
+    try {
+      await fetch(`${apiUrl}/auth/invites/${inviteId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+      message.success('Инвайт удален');
+      refetchInvites();
+    } catch {
+      message.error('Ошибка удаления инвайта');
     }
   };
 
@@ -1426,6 +1522,191 @@ export const Ops = () => {
                     </Col>
                   </Row>
                 )}
+              </Card>
+            ),
+          },
+          {
+            key: 'invites',
+            label: (
+              <span>
+                <UserAddOutlined /> Инвайты
+              </span>
+            ),
+            children: (
+              <Card
+                title={
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Управление инвайт-токенами</span>
+                    <Button
+                      type="primary"
+                      icon={<UserAddOutlined />}
+                      onClick={() => setInviteModalOpen(true)}
+                    >
+                      Создать инвайт
+                    </Button>
+                  </div>
+                }
+                style={{ backgroundColor: '#1f1f1f', borderColor: '#303030' }}
+                styles={{ header: { borderColor: '#303030' } }}
+              >
+                {invitesLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px' }}><Spin /></div>
+                ) : (
+                  <Table
+                    dataSource={invites}
+                    rowKey="id"
+                    size="middle"
+                    pagination={false}
+                    columns={[
+                      {
+                        title: 'Токен',
+                        dataIndex: 'token',
+                        width: 200,
+                        render: (token: string) => (
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                            {token.slice(0, 16)}...
+                          </span>
+                        ),
+                      },
+                      {
+                        title: 'Email',
+                        dataIndex: 'email',
+                        render: (email: string | null) => email || <span style={{ color: '#888' }}>Любой</span>,
+                      },
+                      {
+                        title: 'Роль',
+                        dataIndex: 'role',
+                        width: 100,
+                        render: (role: string) => (
+                          <Tag color={role === 'superuser' ? 'gold' : 'blue'}>
+                            {role}
+                          </Tag>
+                        ),
+                      },
+                      {
+                        title: 'Статус',
+                        key: 'status',
+                        width: 120,
+                        render: (_: unknown, record: InviteToken) => {
+                          if (record.is_used) {
+                            return <Tag color="success">Использован</Tag>;
+                          }
+                          if (record.is_expired) {
+                            return <Tag color="error">Истек</Tag>;
+                          }
+                          return <Tag color="processing">Активен</Tag>;
+                        },
+                      },
+                      {
+                        title: 'Истекает',
+                        dataIndex: 'expires_at',
+                        width: 160,
+                        render: (date: string) => new Date(date).toLocaleString('ru-RU', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      },
+                      {
+                        title: 'Создан',
+                        dataIndex: 'created_at',
+                        width: 160,
+                        render: (date: string) => new Date(date).toLocaleString('ru-RU', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      },
+                      {
+                        title: 'Действия',
+                        key: 'actions',
+                        width: 120,
+                        render: (_: unknown, record: InviteToken) => (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <Tooltip title="Копировать ссылку">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<CopyOutlined />}
+                                disabled={record.is_used || record.is_expired}
+                                onClick={() => handleCopyInviteUrl(record)}
+                              />
+                            </Tooltip>
+                            <Tooltip title="Удалить">
+                              <Button
+                                type="text"
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => handleDeleteInvite(record.id)}
+                              />
+                            </Tooltip>
+                          </div>
+                        ),
+                      },
+                    ]}
+                  />
+                )}
+                {invites.length === 0 && !invitesLoading && (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                    Нет инвайт-токенов. Создайте первый!
+                  </div>
+                )}
+
+                {/* Create Invite Modal */}
+                <Modal
+                  title="Создать инвайт-токен"
+                  open={inviteModalOpen}
+                  onOk={handleCreateInvite}
+                  onCancel={() => {
+                    setInviteModalOpen(false);
+                    setInviteEmail('');
+                    setInviteRole('admin');
+                  }}
+                  confirmLoading={inviteCreating}
+                  okText="Создать"
+                  cancelText="Отмена"
+                >
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px' }}>
+                      Email (опционально):
+                    </label>
+                    <Input
+                      placeholder="email@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
+                    <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                      Если указан — только этот email сможет зарегистрироваться
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px' }}>
+                      Роль:
+                    </label>
+                    <Select
+                      value={inviteRole}
+                      onChange={setInviteRole}
+                      style={{ width: '100%' }}
+                      options={[
+                        { value: 'admin', label: 'Admin' },
+                        { value: 'superuser', label: 'Superuser' },
+                      ]}
+                    />
+                  </div>
+                  <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '4px' }}>
+                    <strong>Как это работает:</strong>
+                    <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
+                      <li>Токен действует 24 часа</li>
+                      <li>Ссылка будет скопирована в буфер обмена</li>
+                      <li>Отправьте её новому пользователю</li>
+                    </ul>
+                  </div>
+                </Modal>
               </Card>
             ),
           },

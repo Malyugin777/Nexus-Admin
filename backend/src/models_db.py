@@ -458,3 +458,26 @@ class PromocodeActivation(Base):
 
     # Relationships
     promocode = relationship("Promocode", back_populates="activations")
+
+
+# =============================================================================
+# Admin Invite Tokens
+# =============================================================================
+
+class InviteToken(Base):
+    """Invite token for admin registration."""
+    __tablename__ = "invite_tokens"
+
+    id = Column(Integer, primary_key=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    email = Column(String(255), nullable=True)  # Optional pre-set email
+    role = Column(String(20), default="admin")
+    created_by = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    used_by = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    creator = relationship("AdminUser", foreign_keys=[created_by], backref="created_invites")
+    user = relationship("AdminUser", foreign_keys=[used_by])

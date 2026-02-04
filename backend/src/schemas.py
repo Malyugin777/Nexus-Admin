@@ -528,3 +528,43 @@ class PromoGenerateResponse(BaseModel):
     codes: list[str]
     count: int
     campaign_name: str
+
+
+# =============================================================================
+# Invite Token Schemas
+# =============================================================================
+
+class InviteCreate(BaseModel):
+    email: Optional[str] = None  # Optional pre-set email
+    role: str = "admin"
+
+
+class InviteResponse(BaseModel):
+    id: int
+    token: str
+    email: Optional[str]
+    role: str
+    created_by: Optional[int]
+    expires_at: datetime
+    used_at: Optional[datetime]
+    used_by: Optional[int]
+    created_at: datetime
+    # Computed
+    is_expired: bool = False
+    is_used: bool = False
+    invite_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InviteListResponse(BaseModel):
+    data: List[InviteResponse]
+    total: int
+
+
+class RegisterByInvite(BaseModel):
+    token: str
+    username: str = Field(..., min_length=3, max_length=100)
+    email: EmailStr
+    password: str = Field(..., min_length=6)

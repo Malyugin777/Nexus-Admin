@@ -1,15 +1,20 @@
 """
 Auth API endpoints.
 """
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
+from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..models import AdminUser
-from ..schemas import LoginRequest, TokenResponse, AdminUserCreate, AdminUserResponse
+from ..models import AdminUser, InviteToken
+from ..schemas import (
+    LoginRequest, TokenResponse, AdminUserCreate, AdminUserResponse,
+    InviteCreate, InviteResponse, InviteListResponse, RegisterByInvite
+)
 from ..auth import hash_password, verify_password, create_access_token, get_current_user, get_superuser
 from ..config import settings
 
@@ -179,3 +184,206 @@ async def initial_setup(
     await db.refresh(user)
 
     return user
+
+
+# =============================================================================
+# Invite Token Endpoints
+# =============================================================================
+
+def _format_invite(invite: InviteToken, base_url: str = "") -> InviteResponse:
+    """Format invite token for response."""
+    now = datetime.utcnow()
+    return InviteResponse(
+        id=invite.id,
+        token=invite.token,
+        email=invite.email,
+        role=invite.role,
+        created_by=invite.created_by,
+        expires_at=invite.expires_at,
+        used_at=invite.used_at,
+        used_by=invite.used_by,
+        created_at=invite.created_at,
+        is_expired=invite.expires_at < now,
+        is_used=invite.used_at is not None,
+        invite_url=f"{base_url}/register?token={invite.token}" if base_url else None,
+    )
+
+
+@router.get("/invites", response_model=InviteListResponse)
+async def list_invites(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_user),
+):
+    """List all invite tokens."""
+    result = await db.execute(
+        select(InviteToken).order_by(InviteToken.created_at.desc())
+    )
+    invites = result.scalars().all()
+
+    # Get base URL for invite links
+    base_url = str(request.base_url).rstrip("/")
+
+    return InviteListResponse(
+        data=[_format_invite(inv, base_url) for inv in invites],
+        total=len(invites),
+    )
+
+
+@router.post("/invites", response_model=InviteResponse)
+async def create_invite(
+    request: Request,
+    data: InviteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user),
+):
+    """Create new invite token (24h expiry)."""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+
+    invite = InviteToken(
+        token=token,
+        email=data.email,
+        role=data.role,
+        created_by=current_user.id,
+        expires_at=expires_at,
+    )
+    db.add(invite)
+    await db.flush()
+    await db.refresh(invite)
+
+    base_url = str(request.base_url).rstrip("/")
+    return _format_invite(invite, base_url)
+
+
+@router.delete("/invites/{invite_id}")
+async def delete_invite(
+    invite_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_user),
+):
+    """Delete/revoke invite token."""
+    result = await db.execute(
+        select(InviteToken).where(InviteToken.id == invite_id)
+    )
+    invite = result.scalar_one_or_none()
+
+    if not invite:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invite not found",
+        )
+
+    await db.delete(invite)
+    return {"message": "Invite deleted"}
+
+
+@router.post("/register-invite", response_model=AdminUserResponse)
+async def register_by_invite(
+    data: RegisterByInvite,
+    db: AsyncSession = Depends(get_db),
+):
+    """Register new admin user using invite token."""
+    # Find and validate invite
+    result = await db.execute(
+        select(InviteToken).where(InviteToken.token == data.token)
+    )
+    invite = result.scalar_one_or_none()
+
+    if not invite:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid invite token",
+        )
+
+    if invite.used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token already used",
+        )
+
+    if invite.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token expired",
+        )
+
+    # If invite has pre-set email, enforce it
+    if invite.email and invite.email.lower() != data.email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"This invite is for {invite.email}",
+        )
+
+    # Check if username exists
+    result = await db.execute(
+        select(AdminUser).where(AdminUser.username == data.username)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists",
+        )
+
+    # Check if email exists
+    result = await db.execute(
+        select(AdminUser).where(AdminUser.email == data.email)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists",
+        )
+
+    # Create user
+    user = AdminUser(
+        username=data.username,
+        email=data.email,
+        password_hash=hash_password(data.password),
+        is_superuser=(invite.role == "superuser"),
+    )
+    db.add(user)
+    await db.flush()
+    await db.refresh(user)
+
+    # Mark invite as used
+    invite.used_at = datetime.utcnow()
+    invite.used_by = user.id
+
+    return user
+
+
+@router.get("/invite-check/{token}")
+async def check_invite(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Check if invite token is valid (public endpoint for register page)."""
+    result = await db.execute(
+        select(InviteToken).where(InviteToken.token == token)
+    )
+    invite = result.scalar_one_or_none()
+
+    if not invite:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid invite token",
+        )
+
+    if invite.used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token already used",
+        )
+
+    if invite.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token expired",
+        )
+
+    return {
+        "valid": True,
+        "email": invite.email,
+        "role": invite.role,
+    }
