@@ -29,6 +29,8 @@ import {
   CloseCircleOutlined,
   ClockCircleOutlined,
   HddOutlined,
+  CodeOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -80,6 +82,9 @@ const formatSpeed = (bytesPerSec: number): string => {
 
 export const NodesList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
+  const [setupScript, setSetupScript] = useState('');
+  const [setupLoading, setSetupLoading] = useState(false);
   const [form] = Form.useForm();
 
   const { data, isLoading, refetch } = useCustom<NodesResponse>({
@@ -166,6 +171,63 @@ export const NodesList = () => {
     }
   };
 
+  const handleGetSetup = async (nodeId: number, nodeName: string) => {
+    setSetupLoading(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/nodes/${nodeId}/settings`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const cert = data.certificate || '';
+
+        // Generate install script with embedded certificate
+        const script = `# Установка marzban-node на сервер: ${nodeName}
+# Скопируйте и выполните в терминале VPS
+
+curl -fsSL https://get.docker.com | sh && \\
+mkdir -p /var/lib/marzban-node && \\
+cat > /var/lib/marzban-node/docker-compose.yml <<'YAML'
+services:
+  marzban-node:
+    image: gozargah/marzban-node:latest
+    restart: always
+    network_mode: host
+    environment:
+      - SSL_CLIENT_CERT_FILE=/var/lib/marzban-node/ssl_client_cert.pem
+      - SERVICE_PORT=62050
+      - XRAY_API_PORT=62051
+    volumes:
+      - /var/lib/marzban-node:/var/lib/marzban-node
+YAML
+cat > /var/lib/marzban-node/ssl_client_cert.pem <<'CERT'
+${cert}
+CERT
+cd /var/lib/marzban-node && docker compose up -d`;
+
+        setSetupScript(script);
+        setSetupModalOpen(true);
+      } else {
+        const error = await response.json();
+        message.error(error.detail || 'Ошибка получения настроек узла');
+      }
+    } catch {
+      message.error('Ошибка получения настроек узла');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(setupScript);
+    message.success('Скрипт скопирован в буфер обмена');
+  };
+
   const columns = [
     {
       title: 'Имя',
@@ -230,6 +292,14 @@ export const NodesList = () => {
       key: 'actions',
       render: (_: unknown, record: Node) => (
         <Space>
+          <Tooltip title="Скрипт установки">
+            <Button
+              size="small"
+              icon={<CodeOutlined />}
+              onClick={() => handleGetSetup(record.id, record.name)}
+              loading={setupLoading}
+            />
+          </Tooltip>
           <Tooltip title="Переподключить">
             <Button
               size="small"
@@ -469,6 +539,71 @@ export const NodesList = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Setup Script Modal */}
+      <Modal
+        title={
+          <Space>
+            <CodeOutlined />
+            <span>Скрипт установки Edge Node</span>
+          </Space>
+        }
+        open={setupModalOpen}
+        onCancel={() => setSetupModalOpen(false)}
+        width={800}
+        footer={[
+          <Button key="close" onClick={() => setSetupModalOpen(false)}>
+            Закрыть
+          </Button>,
+          <Button key="copy" type="primary" icon={<CopyOutlined />} onClick={handleCopyScript}>
+            Скопировать
+          </Button>,
+        ]}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary">
+            Скопируйте эту команду и выполните на целевом VPS сервере.
+            Docker будет установлен автоматически.
+          </Text>
+        </div>
+        <div
+          style={{
+            background: '#1a1a1a',
+            padding: 16,
+            borderRadius: 8,
+            maxHeight: 400,
+            overflow: 'auto',
+          }}
+        >
+          <pre
+            style={{
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              color: '#52c41a',
+              fontFamily: 'Consolas, Monaco, monospace',
+              fontSize: 13,
+            }}
+          >
+            {setupScript}
+          </pre>
+        </div>
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: '#1a1a1a',
+            borderRadius: 6,
+          }}
+        >
+          <Space>
+            <ClockCircleOutlined style={{ color: '#faad14' }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              После выполнения скрипта нажмите "Переподключить" в таблице узлов
+            </Text>
+          </Space>
+        </div>
       </Modal>
     </div>
   );

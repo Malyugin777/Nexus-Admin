@@ -224,6 +224,10 @@ class MarzbanAPI:
         """Reconnect a node."""
         return await self._request("POST", f"/api/node/{node_id}/reconnect")
 
+    async def get_node_settings(self, node_id: int) -> dict:
+        """Get node settings including SSL certificate for installation."""
+        return await self._request("GET", f"/api/node/{node_id}/settings")
+
 
 # Singleton instance
 marzban_api = MarzbanAPI()

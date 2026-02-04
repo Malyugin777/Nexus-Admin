@@ -94,3 +94,19 @@ async def reconnect_node(node_id: int, _=Depends(get_current_user)):
     except MarzbanAPIError as e:
         logger.error(f"Failed to reconnect node {node_id}: {e.message}")
         raise HTTPException(status_code=e.status_code or 500, detail=e.message)
+
+
+@router.get("/{node_id}/settings")
+async def get_node_settings(node_id: int, _=Depends(get_current_user)):
+    """
+    GET /api/v1/nodes/{node_id}/settings
+
+    Get node settings including SSL certificate for installation.
+    """
+    try:
+        result = await marzban_api.get_node_settings(node_id)
+        logger.info(f"Got settings for node: {node_id}")
+        return result
+    except MarzbanAPIError as e:
+        logger.error(f"Failed to get node settings {node_id}: {e.message}")
+        raise HTTPException(status_code=e.status_code or 500, detail=e.message)
