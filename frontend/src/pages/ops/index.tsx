@@ -576,8 +576,8 @@ export const Ops = () => {
       setInviteRole('admin');
       refetchInvites();
       // Copy URL to clipboard
-      if (data.invite_url) {
-        const fullUrl = window.location.origin + data.invite_url.replace(/^[^/]*/, '');
+      if (data.token) {
+        const fullUrl = `${window.location.origin}/register?token=${data.token}`;
         navigator.clipboard.writeText(fullUrl);
         message.info('Ссылка скопирована в буфер обмена');
       }
