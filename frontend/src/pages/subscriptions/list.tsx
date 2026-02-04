@@ -6,7 +6,7 @@ import {
   CreateButton,
   TagField,
 } from '@refinedev/antd';
-import { Table, Space, Button, Card, Row, Col, Statistic, Tooltip, Typography } from 'antd';
+import { Table, Space, Button, Card, Row, Col, Statistic, Tooltip, Typography, Divider } from 'antd';
 import {
   ReloadOutlined,
   DollarOutlined,
@@ -14,14 +14,11 @@ import {
   LinkOutlined,
   ClockCircleOutlined,
   CloudServerOutlined,
-  SafetyCertificateOutlined,
   GlobalOutlined,
   ApiOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { ExportButton } from '../../components';
-
-const { Title } = Typography;
 
 interface Subscription {
   id: number;
@@ -54,6 +51,7 @@ const providerColors: Record<string, string> = {
   hostkey: '#1890ff', HOSTKEY: '#1890ff',
   rapidapi: '#0055ff', RAPIDAPI: '#0055ff',
   domain: '#722ed1', DOMAIN: '#722ed1',
+  regru: '#e53935', REGRU: '#e53935',
   github: '#24292e', GITHUB: '#24292e',
   other: 'default', OTHER: 'default',
 };
@@ -63,6 +61,7 @@ const providerLabels: Record<string, string> = {
   hostkey: 'Hostkey', HOSTKEY: 'Hostkey',
   rapidapi: 'RapidAPI', RAPIDAPI: 'RapidAPI',
   domain: 'Regway', DOMAIN: 'Regway',
+  regru: 'Reg.ru', REGRU: 'Reg.ru',
   github: 'GitHub', GITHUB: 'GitHub',
   other: 'Другое', OTHER: 'Другое',
 };
@@ -74,11 +73,9 @@ const cycleLabels: Record<string, string> = {
 };
 
 const categoryConfig: Record<string, { icon: React.ReactNode; title: string; color: string }> = {
-  infrastructure: { icon: <CloudServerOutlined />, title: 'Инфраструктура', color: '#1890ff' },
-  vpn: { icon: <SafetyCertificateOutlined />, title: 'VPN Узлы', color: '#52c41a' },
   domain: { icon: <GlobalOutlined />, title: 'Домены', color: '#722ed1' },
-  api: { icon: <ApiOutlined />, title: 'API Сервисы', color: '#fa8c16' },
-  other: { icon: <CloudServerOutlined />, title: 'Прочее', color: '#8c8c8c' },
+  infrastructure: { icon: <CloudServerOutlined />, title: 'Инфраструктура', color: '#1890ff' },
+  operational: { icon: <ApiOutlined />, title: 'Рабочие сервисы', color: '#fa8c16' },
 };
 
 const SubscriptionTable = ({ data, showIP = true }: { data: Subscription[]; showIP?: boolean }) => (
@@ -212,11 +209,9 @@ export const SubscriptionList = () => {
   );
 
   // Group by category
-  const infrastructure = data.filter((s) => s.category === 'infrastructure');
-  const vpn = data.filter((s) => s.category === 'vpn');
   const domains = data.filter((s) => s.category === 'domain');
-  const api = data.filter((s) => s.category === 'api');
-  const other = data.filter((s) => !['infrastructure', 'vpn', 'domain', 'api'].includes(s.category));
+  const infrastructure = data.filter((s) => s.category === 'infrastructure');
+  const operational = data.filter((s) => s.category === 'operational');
 
   return (
     <List
@@ -270,40 +265,6 @@ export const SubscriptionList = () => {
         </Col>
       </Row>
 
-      {/* Infrastructure Section */}
-      {infrastructure.length > 0 && (
-        <Card
-          title={
-            <Space>
-              <CloudServerOutlined style={{ color: categoryConfig.infrastructure.color }} />
-              <span>Инфраструктура</span>
-              <TagField color="blue" value={`${infrastructure.length}`} />
-            </Space>
-          }
-          style={{ marginBottom: 16 }}
-          size="small"
-        >
-          <SubscriptionTable data={infrastructure} />
-        </Card>
-      )}
-
-      {/* VPN Section */}
-      {vpn.length > 0 && (
-        <Card
-          title={
-            <Space>
-              <SafetyCertificateOutlined style={{ color: categoryConfig.vpn.color }} />
-              <span>VPN Узлы</span>
-              <TagField color="green" value={`${vpn.length}`} />
-            </Space>
-          }
-          style={{ marginBottom: 16 }}
-          size="small"
-        >
-          <SubscriptionTable data={vpn} />
-        </Card>
-      )}
-
       {/* Domains Section */}
       {domains.length > 0 && (
         <Card
@@ -314,43 +275,53 @@ export const SubscriptionList = () => {
               <TagField color="purple" value={`${domains.length}`} />
             </Space>
           }
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 0 }}
           size="small"
         >
           <SubscriptionTable data={domains} showIP={false} />
         </Card>
       )}
 
-      {/* API Section */}
-      {api.length > 0 && (
+      {/* Divider */}
+      {domains.length > 0 && infrastructure.length > 0 && (
+        <Divider style={{ margin: '16px 0' }} />
+      )}
+
+      {/* Infrastructure Section */}
+      {infrastructure.length > 0 && (
         <Card
           title={
             <Space>
-              <ApiOutlined style={{ color: categoryConfig.api.color }} />
-              <span>API Сервисы</span>
-              <TagField color="orange" value={`${api.length}`} />
+              <CloudServerOutlined style={{ color: categoryConfig.infrastructure.color }} />
+              <span>Инфраструктура</span>
+              <TagField color="blue" value={`${infrastructure.length}`} />
             </Space>
           }
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 0 }}
           size="small"
         >
-          <SubscriptionTable data={api} showIP={false} />
+          <SubscriptionTable data={infrastructure} />
         </Card>
       )}
 
-      {/* Other Section */}
-      {other.length > 0 && (
+      {/* Divider */}
+      {infrastructure.length > 0 && operational.length > 0 && (
+        <Divider style={{ margin: '16px 0' }} />
+      )}
+
+      {/* Operational Section */}
+      {operational.length > 0 && (
         <Card
           title={
             <Space>
-              <CloudServerOutlined style={{ color: categoryConfig.other.color }} />
-              <span>Прочее</span>
-              <TagField color="default" value={`${other.length}`} />
+              <ApiOutlined style={{ color: categoryConfig.operational.color }} />
+              <span>Рабочие сервисы</span>
+              <TagField color="orange" value={`${operational.length}`} />
             </Space>
           }
           size="small"
         >
-          <SubscriptionTable data={other} />
+          <SubscriptionTable data={operational} />
         </Card>
       )}
     </List>

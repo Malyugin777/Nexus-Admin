@@ -40,7 +40,8 @@ export const SubscriptionEdit = () => {
                 <Select.Option value="aeza">Aeza VPS</Select.Option>
                 <Select.Option value="hostkey">Hostkey VPS</Select.Option>
                 <Select.Option value="rapidapi">RapidAPI</Select.Option>
-                <Select.Option value="domain">Домен</Select.Option>
+                <Select.Option value="domain">Regway</Select.Option>
+                <Select.Option value="regru">Reg.ru</Select.Option>
                 <Select.Option value="github">GitHub</Select.Option>
                 <Select.Option value="other">Другое</Select.Option>
               </Select>
@@ -64,12 +65,10 @@ export const SubscriptionEdit = () => {
               label="Категория"
               name="category"
             >
-              <Select style={{ width: 160 }}>
-                <Select.Option value="infrastructure">Инфраструктура</Select.Option>
-                <Select.Option value="vpn">VPN Узлы</Select.Option>
+              <Select style={{ width: 180 }}>
                 <Select.Option value="domain">Домены</Select.Option>
-                <Select.Option value="api">API Сервисы</Select.Option>
-                <Select.Option value="other">Прочее</Select.Option>
+                <Select.Option value="infrastructure">Инфраструктура</Select.Option>
+                <Select.Option value="operational">Рабочие сервисы</Select.Option>
               </Select>
             </Form.Item>
           </Space>

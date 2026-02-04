@@ -164,6 +164,7 @@ class SubscriptionProvider(str, PyEnum):
     RAPIDAPI = "rapidapi"
     DOMAIN = "domain"
     GITHUB = "github"
+    REGRU = "regru"
     OTHER = "other"
 
 
