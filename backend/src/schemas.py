@@ -300,6 +300,7 @@ class SubscriptionBase(BaseModel):
     description: Optional[str] = None
     provider: SubscriptionProvider = SubscriptionProvider.OTHER
     provider_url: Optional[str] = None
+    ip_address: Optional[str] = None
     amount: float = 0.0
     currency: str = Field(default="RUB", max_length=3)
     billing_cycle: BillingCycle = BillingCycle.MONTHLY
@@ -318,6 +319,7 @@ class SubscriptionUpdate(BaseModel):
     description: Optional[str] = None
     provider: Optional[SubscriptionProvider] = None
     provider_url: Optional[str] = None
+    ip_address: Optional[str] = None
     amount: Optional[float] = None
     currency: Optional[str] = Field(None, max_length=3)
     billing_cycle: Optional[BillingCycle] = None

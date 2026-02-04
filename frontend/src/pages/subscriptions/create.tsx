@@ -61,6 +61,13 @@ export const SubscriptionCreate = () => {
             >
               <Input placeholder="https://my.aeza.net" style={{ width: 300 }} />
             </Form.Item>
+
+            <Form.Item
+              label="IP адрес"
+              name="ip_address"
+            >
+              <Input placeholder="185.96.80.254" style={{ width: 200 }} />
+            </Form.Item>
           </Space>
         </Card>
 

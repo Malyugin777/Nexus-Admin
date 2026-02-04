@@ -24,6 +24,7 @@ interface Subscription {
   description: string | null;
   provider: string;
   provider_url: string | null;
+  ip_address: string | null;
   amount: number;
   currency: string;
   billing_cycle: string;
@@ -175,6 +176,13 @@ export const SubscriptionList = () => {
               )}
             </Space>
           )}
+        />
+        <Table.Column
+          dataIndex="ip_address"
+          title="IP"
+          render={(value: string | null) =>
+            value ? <code style={{ fontSize: 12 }}>{value}</code> : <span style={{ color: '#888' }}>—</span>
+          }
         />
         <Table.Column
           dataIndex="provider"

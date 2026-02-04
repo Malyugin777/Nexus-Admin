@@ -190,6 +190,7 @@ class Subscription(Base):
     # Provider info
     provider = Column(Enum(SubscriptionProvider), default=SubscriptionProvider.OTHER)
     provider_url = Column(String(500), nullable=True)
+    ip_address = Column(String(45), nullable=True)  # IPv4/IPv6 for server tracking
 
     # Billing
     amount = Column(Float, default=0.0)
