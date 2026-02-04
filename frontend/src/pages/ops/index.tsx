@@ -170,7 +170,7 @@ interface FallbacksResponse {
   total: number;
 }
 
-// Invite types
+// Invite types (legacy)
 interface InviteToken {
   id: number;
   token: string;
@@ -189,6 +189,18 @@ interface InviteToken {
 interface InviteListResponse {
   data: InviteToken[];
   total: number;
+}
+
+// Marzban Admin types
+interface MarzbanAdmin {
+  username: string;
+  is_sudo: boolean;
+  telegram_id?: number;
+  discord_webhook?: string;
+}
+
+interface MarzbanAdminsResponse {
+  admins: MarzbanAdmin[];
 }
 
 // Human-readable source names
@@ -387,11 +399,18 @@ export const Ops = () => {
     queryOptions: { queryKey: ['ops-fallbacks', refreshKey, fallbackPeriod] },
   });
 
-  // Invites data
+  // Invites data (legacy)
   const { data: invitesData, isLoading: invitesLoading, refetch: refetchInvites } = useCustom<InviteListResponse>({
     url: '/auth/invites',
     method: 'get',
     queryOptions: { queryKey: ['invites', refreshKey] },
+  });
+
+  // Marzban Admins data
+  const { data: adminsData, isLoading: adminsLoading, refetch: refetchAdmins } = useCustom<MarzbanAdminsResponse>({
+    url: '/auth/marzban-admins',
+    method: 'get',
+    queryOptions: { queryKey: ['marzban-admins', refreshKey] },
   });
 
   // State for routing editor
@@ -399,11 +418,18 @@ export const Ops = () => {
   const [editedChain, setEditedChain] = useState<ProviderConfig[] | null>(null);
   const [routingSaving, setRoutingSaving] = useState(false);
 
-  // State for invites
+  // State for invites (legacy)
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('admin');
   const [inviteCreating, setInviteCreating] = useState(false);
+
+  // State for Marzban admins
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminIsSudo, setAdminIsSudo] = useState(false);
+  const [adminCreating, setAdminCreating] = useState(false);
 
   const platforms = platformsData?.data?.platforms || [];
   const providers = providersData?.data?.providers || [];
@@ -414,6 +440,7 @@ export const Ops = () => {
   const fallbackStats = fallbacksData?.data?.stats || [];
   const fallbackTotal = fallbacksData?.data?.total || 0;
   const invites = invitesData?.data?.data || [];
+  const marzbanAdmins = adminsData?.data?.admins || [];
 
   // Calculate KPIs
   const totalSuccess = platforms.reduce((sum, p) => sum + p.success, 0);
@@ -605,6 +632,61 @@ export const Ops = () => {
       refetchInvites();
     } catch {
       message.error('Ошибка удаления инвайта');
+    }
+  };
+
+  // Marzban Admin handlers
+  const handleCreateAdmin = async () => {
+    if (!adminUsername || !adminPassword) {
+      message.error('Введите логин и пароль');
+      return;
+    }
+    setAdminCreating(true);
+    try {
+      const response = await fetch(`${apiUrl}/auth/marzban-admins`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: adminUsername,
+          password: adminPassword,
+          is_sudo: adminIsSudo,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to create admin');
+      }
+      message.success(`Админ ${adminUsername} создан! Можно входить.`);
+      setAdminModalOpen(false);
+      setAdminUsername('');
+      setAdminPassword('');
+      setAdminIsSudo(false);
+      refetchAdmins();
+    } catch (err) {
+      message.error(`Ошибка: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
+    }
+    setAdminCreating(false);
+  };
+
+  const handleDeleteAdmin = async (username: string) => {
+    try {
+      const response = await fetch(`${apiUrl}/auth/marzban-admins/${username}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to delete admin');
+      }
+      message.success(`Админ ${username} удален`);
+      refetchAdmins();
+    } catch (err) {
+      message.error(`Ошибка: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
     }
   };
 
@@ -1526,184 +1608,136 @@ export const Ops = () => {
             ),
           },
           {
-            key: 'invites',
+            key: 'admins',
             label: (
               <span>
-                <UserAddOutlined /> Инвайты
+                <UserAddOutlined /> Админы
               </span>
             ),
             children: (
               <Card
                 title={
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Управление инвайт-токенами</span>
+                    <span>Управление админами Marzban</span>
                     <Button
                       type="primary"
                       icon={<UserAddOutlined />}
-                      onClick={() => setInviteModalOpen(true)}
+                      onClick={() => setAdminModalOpen(true)}
                     >
-                      Создать инвайт
+                      Создать админа
                     </Button>
                   </div>
                 }
                 style={{ backgroundColor: '#1f1f1f', borderColor: '#303030' }}
                 styles={{ header: { borderColor: '#303030' } }}
               >
-                {invitesLoading ? (
+                {adminsLoading ? (
                   <div style={{ textAlign: 'center', padding: '40px' }}><Spin /></div>
                 ) : (
                   <Table
-                    dataSource={invites}
-                    rowKey="id"
+                    dataSource={marzbanAdmins}
+                    rowKey="username"
                     size="middle"
                     pagination={false}
                     columns={[
                       {
-                        title: 'Токен',
-                        dataIndex: 'token',
-                        width: 200,
-                        render: (token: string) => (
-                          <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
-                            {token.slice(0, 16)}...
+                        title: 'Username',
+                        dataIndex: 'username',
+                        render: (username: string) => (
+                          <span style={{ fontWeight: 'bold' }}>
+                            {username}
                           </span>
                         ),
                       },
                       {
-                        title: 'Email',
-                        dataIndex: 'email',
-                        render: (email: string | null) => email || <span style={{ color: '#888' }}>Любой</span>,
-                      },
-                      {
                         title: 'Роль',
-                        dataIndex: 'role',
-                        width: 100,
-                        render: (role: string) => (
-                          <Tag color={role === 'superuser' ? 'gold' : 'blue'}>
-                            {role}
+                        dataIndex: 'is_sudo',
+                        width: 120,
+                        render: (isSudo: boolean) => (
+                          <Tag color={isSudo ? 'gold' : 'blue'}>
+                            {isSudo ? 'Superuser' : 'Admin'}
                           </Tag>
                         ),
                       },
                       {
-                        title: 'Статус',
-                        key: 'status',
-                        width: 120,
-                        render: (_: unknown, record: InviteToken) => {
-                          if (record.is_used) {
-                            return <Tag color="success">Использован</Tag>;
-                          }
-                          if (record.is_expired) {
-                            return <Tag color="error">Истек</Tag>;
-                          }
-                          return <Tag color="processing">Активен</Tag>;
-                        },
-                      },
-                      {
-                        title: 'Истекает',
-                        dataIndex: 'expires_at',
-                        width: 160,
-                        render: (date: string) => new Date(date).toLocaleString('ru-RU', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }),
-                      },
-                      {
-                        title: 'Создан',
-                        dataIndex: 'created_at',
-                        width: 160,
-                        render: (date: string) => new Date(date).toLocaleString('ru-RU', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }),
+                        title: 'Telegram ID',
+                        dataIndex: 'telegram_id',
+                        width: 140,
+                        render: (id: number | undefined) => id || <span style={{ color: '#888' }}>-</span>,
                       },
                       {
                         title: 'Действия',
                         key: 'actions',
-                        width: 120,
-                        render: (_: unknown, record: InviteToken) => (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <Tooltip title="Копировать ссылку">
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<CopyOutlined />}
-                                disabled={record.is_used || record.is_expired}
-                                onClick={() => handleCopyInviteUrl(record)}
-                              />
-                            </Tooltip>
-                            <Tooltip title="Удалить">
-                              <Button
-                                type="text"
-                                size="small"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={() => handleDeleteInvite(record.id)}
-                              />
-                            </Tooltip>
-                          </div>
+                        width: 100,
+                        render: (_: unknown, record: MarzbanAdmin) => (
+                          <Tooltip title="Удалить">
+                            <Button
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleDeleteAdmin(record.username)}
+                            />
+                          </Tooltip>
                         ),
                       },
                     ]}
                   />
                 )}
-                {invites.length === 0 && !invitesLoading && (
+                {marzbanAdmins.length === 0 && !adminsLoading && (
                   <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
-                    Нет инвайт-токенов. Создайте первый!
+                    Нет админов. Создайте первого!
                   </div>
                 )}
 
-                {/* Create Invite Modal */}
+                {/* Create Admin Modal */}
                 <Modal
-                  title="Создать инвайт-токен"
-                  open={inviteModalOpen}
-                  onOk={handleCreateInvite}
+                  title="Создать админа Marzban"
+                  open={adminModalOpen}
+                  onOk={handleCreateAdmin}
                   onCancel={() => {
-                    setInviteModalOpen(false);
-                    setInviteEmail('');
-                    setInviteRole('admin');
+                    setAdminModalOpen(false);
+                    setAdminUsername('');
+                    setAdminPassword('');
+                    setAdminIsSudo(false);
                   }}
-                  confirmLoading={inviteCreating}
+                  confirmLoading={adminCreating}
                   okText="Создать"
                   cancelText="Отмена"
                 >
                   <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px' }}>
-                      Email (опционально):
+                      Username:
                     </label>
                     <Input
-                      placeholder="email@example.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="admin_username"
+                      value={adminUsername}
+                      onChange={(e) => setAdminUsername(e.target.value)}
                     />
-                    <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
-                      Если указан — только этот email сможет зарегистрироваться
-                    </div>
                   </div>
-                  <div>
+                  <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px' }}>
-                      Роль:
+                      Пароль:
                     </label>
-                    <Select
-                      value={inviteRole}
-                      onChange={setInviteRole}
-                      style={{ width: '100%' }}
-                      options={[
-                        { value: 'admin', label: 'Admin' },
-                        { value: 'superuser', label: 'Superuser' },
-                      ]}
+                    <Input.Password
+                      placeholder="Пароль для входа"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
                     />
                   </div>
-                  <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '4px' }}>
-                    <strong>Как это работает:</strong>
+                  <div style={{ marginBottom: '16px' }}>
+                    <Switch
+                      checked={adminIsSudo}
+                      onChange={setAdminIsSudo}
+                    />
+                    <span style={{ marginLeft: '8px' }}>Superuser (полный доступ)</span>
+                  </div>
+                  <div style={{ padding: '12px', backgroundColor: 'rgba(24, 144, 255, 0.1)', borderRadius: '4px' }}>
+                    <strong>После создания:</strong>
                     <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
-                      <li>Токен действует 24 часа</li>
-                      <li>Ссылка будет скопирована в буфер обмена</li>
-                      <li>Отправьте её новому пользователю</li>
+                      <li>Админ сможет войти в Marzban</li>
+                      <li>Админ сможет войти в эту админку</li>
+                      <li>Единый логин/пароль для обеих систем</li>
                     </ul>
                   </div>
                 </Modal>

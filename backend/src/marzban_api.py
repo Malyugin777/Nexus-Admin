@@ -228,6 +228,44 @@ class MarzbanAPI:
         """Get node settings including SSL certificate for installation."""
         return await self._request("GET", f"/api/node/{node_id}/settings")
 
+    # ============ Admin Management ============
+
+    async def get_admins(self) -> list:
+        """Get list of all Marzban admins."""
+        return await self._request("GET", "/api/admins")
+
+    async def create_admin(
+        self,
+        username: str,
+        password: str,
+        is_sudo: bool = False,
+    ) -> dict:
+        """Create a new admin in Marzban."""
+        payload = {
+            "username": username,
+            "password": password,
+            "is_sudo": is_sudo,
+        }
+        return await self._request("POST", "/api/admin", json=payload)
+
+    async def delete_admin(self, username: str) -> dict:
+        """Delete an admin from Marzban."""
+        return await self._request("DELETE", f"/api/admin/{username}")
+
+    async def modify_admin(
+        self,
+        username: str,
+        password: str = None,
+        is_sudo: bool = None,
+    ) -> dict:
+        """Modify an existing admin in Marzban."""
+        payload = {}
+        if password is not None:
+            payload["password"] = password
+        if is_sudo is not None:
+            payload["is_sudo"] = is_sudo
+        return await self._request("PUT", f"/api/admin/{username}", json=payload)
+
 
 # Singleton instance
 marzban_api = MarzbanAPI()

@@ -455,3 +455,86 @@ async def check_invite(
         "email": invite.email,
         "role": invite.role,
     }
+
+
+# =============================================================================
+# Marzban Admin Management Endpoints
+# =============================================================================
+
+from ..marzban_api import marzban_api, MarzbanAPIError
+from pydantic import BaseModel
+
+
+class MarzbanAdminCreate(BaseModel):
+    username: str
+    password: str
+    is_sudo: bool = False
+
+
+@router.get("/marzban-admins")
+async def list_marzban_admins(
+    _: AdminUser = Depends(get_current_user),
+):
+    """List all Marzban admins."""
+    if not marzban_api.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marzban not configured",
+        )
+
+    try:
+        admins = await marzban_api.get_admins()
+        return {"admins": admins}
+    except MarzbanAPIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Marzban error: {e.message}",
+        )
+
+
+@router.post("/marzban-admins")
+async def create_marzban_admin(
+    data: MarzbanAdminCreate,
+    _: AdminUser = Depends(get_current_user),
+):
+    """Create a new admin in Marzban."""
+    if not marzban_api.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marzban not configured",
+        )
+
+    try:
+        result = await marzban_api.create_admin(
+            username=data.username,
+            password=data.password,
+            is_sudo=data.is_sudo,
+        )
+        return {"success": True, "admin": result}
+    except MarzbanAPIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create admin: {e.message}",
+        )
+
+
+@router.delete("/marzban-admins/{username}")
+async def delete_marzban_admin(
+    username: str,
+    _: AdminUser = Depends(get_current_user),
+):
+    """Delete an admin from Marzban."""
+    if not marzban_api.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marzban not configured",
+        )
+
+    try:
+        await marzban_api.delete_admin(username)
+        return {"success": True, "message": f"Admin {username} deleted"}
+    except MarzbanAPIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to delete admin: {e.message}",
+        )
