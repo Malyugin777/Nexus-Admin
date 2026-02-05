@@ -221,12 +221,14 @@ function App() {
                           const fetchVersion = async () => {
                             try {
                               const token = localStorage.getItem('access_token');
+                              console.log('[Header] Fetching version, token:', token ? 'exists' : 'missing');
                               const response = await axios.get('/api/v1/stats', {
                                 headers: { Authorization: `Bearer ${token}` }
                               });
+                              console.log('[Header] Stats response:', response.data);
                               setVersion(response.data.version);
-                            } catch {
-                              // ignore
+                            } catch (err) {
+                              console.error('[Header] Failed to fetch version:', err);
                             }
                           };
                           fetchVersion();
@@ -262,7 +264,7 @@ function App() {
                             backgroundColor: '#141414',
                             borderBottom: '1px solid #303030',
                           }}>
-                            <div style={{ color: '#666', fontSize: '12px' }}>
+                            <div style={{ color: '#888', fontSize: '13px', fontWeight: 500 }}>
                               {version && `v${version}`}
                             </div>
                             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
