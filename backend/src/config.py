@@ -7,7 +7,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Version
-    version: str = "1.5.1"
+    version: str = "1.5.3"
 
     # Database
     postgres_host: str = "postgres"
