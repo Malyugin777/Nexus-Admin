@@ -56,6 +56,8 @@ async def list_subscriptions(
             "description": sub.description,
             "provider": sub.provider,
             "provider_url": sub.provider_url,
+            "ip_address": sub.ip_address,
+            "category": sub.category,
             "amount": sub.amount,
             "currency": sub.currency,
             "billing_cycle": sub.billing_cycle,
