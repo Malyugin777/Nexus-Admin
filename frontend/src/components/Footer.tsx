@@ -24,19 +24,15 @@ export const Footer: React.FC = () => {
 
   return (
     <div style={{
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: '32px',
+      height: '40px',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
       backgroundColor: '#141414',
       borderTop: '1px solid #303030',
-      color: '#666',
+      color: '#a0a0a0',
       fontSize: '12px',
-      zIndex: 100,
+      marginTop: '24px',
     }}>
       Nexus Control Panel {version && `v${version}`}
     </div>

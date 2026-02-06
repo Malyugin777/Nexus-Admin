@@ -151,7 +151,7 @@ export const BroadcastShow = () => {
               />
             )}
             {record?.message_video && (
-              <div style={{ marginTop: 8, color: '#888' }}>
+              <div style={{ marginTop: 8, color: '#a0a0a0' }}>
                 🎬 Видео: {record.message_video.substring(0, 50)}...
               </div>
             )}

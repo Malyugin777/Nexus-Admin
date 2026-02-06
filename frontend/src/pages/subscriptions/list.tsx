@@ -87,7 +87,7 @@ const SubscriptionTable = ({ data, showIP = true }: { data: Subscription[]; show
         <Space direction="vertical" size={0}>
           <strong>{value}</strong>
           {record.description && (
-            <span style={{ fontSize: 11, color: '#888' }}>{record.description}</span>
+            <span style={{ fontSize: 11, color: '#a0a0a0' }}>{record.description}</span>
           )}
         </Space>
       )}
@@ -98,7 +98,7 @@ const SubscriptionTable = ({ data, showIP = true }: { data: Subscription[]; show
         title="IP"
         width={130}
         render={(value: string | null) =>
-          value ? <code style={{ fontSize: 12 }}>{value}</code> : <span style={{ color: '#888' }}>—</span>
+          value ? <code style={{ fontSize: 12 }}>{value}</code> : <span style={{ color: '#a0a0a0' }}>—</span>
         }
       />
     )}
@@ -126,7 +126,7 @@ const SubscriptionTable = ({ data, showIP = true }: { data: Subscription[]; show
       render={(value: number, record: Subscription) => (
         <span style={{ fontWeight: 500 }}>
           {value.toLocaleString()} {record.currency === 'RUB' ? '₽' : record.currency}
-          <span style={{ fontSize: 11, color: '#888' }}>
+          <span style={{ fontSize: 11, color: '#a0a0a0' }}>
             {cycleLabels[record.billing_cycle] || ''}
           </span>
         </span>
@@ -137,7 +137,7 @@ const SubscriptionTable = ({ data, showIP = true }: { data: Subscription[]; show
       title="Платёж"
       width={110}
       render={(value: string | null, record: Subscription) => {
-        if (!value) return <span style={{ color: '#888' }}>—</span>;
+        if (!value) return <span style={{ color: '#a0a0a0' }}>—</span>;
         const days = record.days_until_payment;
         let color = '#888';
         if (days !== null) {

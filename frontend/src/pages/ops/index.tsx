@@ -966,7 +966,7 @@ export const Ops = () => {
               valueStyle={{ color: getSuccessRateColor(overallSuccessRate) }}
               prefix={overallSuccessRate >= 90 ? <CheckCircleOutlined /> : <WarningOutlined />}
             />
-            <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#a0a0a0', marginTop: '8px' }}>
               {totalSuccess} / {totalSuccess + totalErrors} загрузок
             </div>
           </Card>
@@ -982,7 +982,7 @@ export const Ops = () => {
                 prefix={<ClockCircleOutlined />}
               />
             </Tooltip>
-            <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#a0a0a0', marginTop: '8px' }}>
               По всем платформам
             </div>
           </Card>
@@ -1003,7 +1003,7 @@ export const Ops = () => {
                 prefix={<DatabaseOutlined />}
               />
             </Tooltip>
-            <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#a0a0a0', marginTop: '8px' }}>
               {socialRemaining !== null && socialRemaining !== undefined && socialLimit
                 ? `${socialRemaining.toLocaleString()} из ${socialLimit.toLocaleString()} шт`
                 : 'Нет данных'
@@ -1020,7 +1020,7 @@ export const Ops = () => {
               prefix={<ThunderboltOutlined />}
               valueStyle={{ color: '#1890ff', fontSize: '24px' }}
             />
-            <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#a0a0a0', marginTop: '8px' }}>
               <span style={{ color: (system?.active_downloads ?? 0) > 0 ? '#52c41a' : '#888' }}>
                 {system?.active_downloads ?? 0} скачиваний
               </span>
@@ -1168,7 +1168,7 @@ export const Ops = () => {
                         </div>
                       </div>
                     ) : (
-                      <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>
+                      <div style={{ color: '#a0a0a0', textAlign: 'center', padding: '20px' }}>
                         Нет данных с сервера Hostkey.
                         <br />
                         <span style={{ fontSize: '12px' }}>Метрики обновляются каждые 30 секунд</span>
@@ -1194,7 +1194,7 @@ export const Ops = () => {
                                 <Tag color={quota.provider === 'savenow' ? 'green' : 'blue'}>
                                   {quota.provider.toUpperCase()}
                                 </Tag>
-                                <span style={{ fontSize: '12px', color: '#888' }}>{quota.plan}</span>
+                                <span style={{ fontSize: '12px', color: '#a0a0a0' }}>{quota.plan}</span>
                               </span>
                             }
                           >
@@ -1219,7 +1219,7 @@ export const Ops = () => {
                                 <Row gutter={[16, 8]}>
                                   <Col span={12}>
                                     <Tooltip title={isSavenow ? 'Токены (длинные видео = больше токенов)' : '1 скачивание = 1 запрос'}>
-                                      <div style={{ fontSize: '12px', color: '#888' }}>
+                                      <div style={{ fontSize: '12px', color: '#a0a0a0' }}>
                                         Осталось {unitLabel}
                                       </div>
                                     </Tooltip>
@@ -1228,11 +1228,11 @@ export const Ops = () => {
                                         <>
                                           {remaining.toLocaleString()}
                                           {limit && (
-                                            <span style={{ fontSize: '12px', color: '#888' }}> / {limit.toLocaleString()}</span>
+                                            <span style={{ fontSize: '12px', color: '#a0a0a0' }}> / {limit.toLocaleString()}</span>
                                           )}
                                         </>
                                       ) : (
-                                        <span style={{ fontSize: '14px', color: '#888' }}>Нет данных</span>
+                                        <span style={{ fontSize: '14px', color: '#a0a0a0' }}>Нет данных</span>
                                       )}
                                     </div>
                                   </Col>
@@ -1241,7 +1241,7 @@ export const Ops = () => {
                                       ? "Потрачено токенов с начала месяца (из API)"
                                       : "Сколько скачиваний сделано за последние 24 часа"
                                     }>
-                                      <div style={{ fontSize: '12px', color: '#888' }}>
+                                      <div style={{ fontSize: '12px', color: '#a0a0a0' }}>
                                         {isSavenow ? 'Потрачено за месяц' : 'Скачано за 24ч'}
                                       </div>
                                     </Tooltip>
@@ -1249,19 +1249,19 @@ export const Ops = () => {
                                       {quota.burn_rate_24h !== null ? (
                                         <>{quota.burn_rate_24h} <span style={{ fontSize: '12px' }}>{isSavenow ? 'токенов' : 'шт'}</span></>
                                       ) : (
-                                        <span style={{ fontSize: '14px', color: '#888' }}>-</span>
+                                        <span style={{ fontSize: '14px', color: '#a0a0a0' }}>-</span>
                                       )}
                                     </div>
                                   </Col>
                                   <Col span={12}>
                                     <Tooltip title="Когда квота обнулится и начнётся новый месяц">
-                                      <div style={{ fontSize: '12px', color: '#888' }}>Новый месяц через</div>
+                                      <div style={{ fontSize: '12px', color: '#a0a0a0' }}>Новый месяц через</div>
                                     </Tooltip>
                                     <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
                                       {daysUntilReset !== null ? (
                                         <>{daysUntilReset} <span style={{ fontSize: '12px' }}>дней</span></>
                                       ) : (
-                                        <span style={{ fontSize: '14px', color: '#888' }}>-</span>
+                                        <span style={{ fontSize: '14px', color: '#a0a0a0' }}>-</span>
                                       )}
                                     </div>
                                   </Col>
@@ -1270,7 +1270,7 @@ export const Ops = () => {
                                       ? "Сколько % квоты уже использовано"
                                       : "Сколько % квоты потратим к концу месяца при текущем темпе"
                                     }>
-                                      <div style={{ fontSize: '12px', color: '#888' }}>
+                                      <div style={{ fontSize: '12px', color: '#a0a0a0' }}>
                                         {isSavenow ? 'Использовано' : 'Прогноз на месяц'}
                                       </div>
                                     </Tooltip>
@@ -1285,7 +1285,7 @@ export const Ops = () => {
                                       {(isSavenow ? quota.forecast_average : projectedPercent) !== null ? (
                                         <>{isSavenow ? quota.forecast_average : projectedPercent}%</>
                                       ) : (
-                                        <span style={{ fontSize: '14px', color: '#888' }}>-</span>
+                                        <span style={{ fontSize: '14px', color: '#a0a0a0' }}>-</span>
                                       )}
                                     </div>
                                   </Col>
@@ -1314,7 +1314,7 @@ export const Ops = () => {
                         ))}
                       </div>
                     ) : (
-                      <div style={{ color: '#888' }}>Нет данных о квотах</div>
+                      <div style={{ color: '#a0a0a0' }}>Нет данных о квотах</div>
                     )}
                   </Card>
                 </Col>
@@ -1462,7 +1462,7 @@ export const Ops = () => {
                           </div>
                         ))}
                         {displayChain.length === 0 && (
-                          <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>
+                          <div style={{ color: '#a0a0a0', textAlign: 'center', padding: '20px' }}>
                             Нет провайдеров
                           </div>
                         )}
@@ -1544,7 +1544,7 @@ export const Ops = () => {
                                 suffix="fallbacks"
                                 valueStyle={{ fontSize: '20px' }}
                               />
-                              <div style={{ marginTop: 8, fontSize: '11px', color: '#888' }}>
+                              <div style={{ marginTop: 8, fontSize: '11px', color: '#a0a0a0' }}>
                                 {Object.entries(stat.top_reasons).slice(0, 2).map(([reason, count]) => (
                                   <div key={reason}>{reason}: {count}</div>
                                 ))}
@@ -1663,7 +1663,7 @@ export const Ops = () => {
                         title: 'Telegram ID',
                         dataIndex: 'telegram_id',
                         width: 140,
-                        render: (id: number | undefined) => id || <span style={{ color: '#888' }}>-</span>,
+                        render: (id: number | undefined) => id || <span style={{ color: '#a0a0a0' }}>-</span>,
                       },
                       {
                         title: 'Действия',
@@ -1685,7 +1685,7 @@ export const Ops = () => {
                   />
                 )}
                 {marzbanAdmins.length === 0 && !adminsLoading && (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#a0a0a0' }}>
                     Нет админов. Создайте первого!
                   </div>
                 )}

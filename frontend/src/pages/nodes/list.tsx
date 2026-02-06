@@ -438,7 +438,7 @@ cd /var/lib/marzban-node && docker compose up -d`;
       >
         {nodes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <CloudServerOutlined style={{ fontSize: 48, color: '#888', marginBottom: 16 }} />
+            <CloudServerOutlined style={{ fontSize: 48, color: '#a0a0a0', marginBottom: 16 }} />
             <div>
               <Text type="secondary">Нет подключённых узлов</Text>
             </div>

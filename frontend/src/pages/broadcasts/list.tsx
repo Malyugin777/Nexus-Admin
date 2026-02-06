@@ -222,7 +222,7 @@ export const BroadcastList = () => {
                     size="small"
                     status={record.status === 'running' ? 'active' : undefined}
                   />
-                  <span style={{ fontSize: 11, color: '#888' }}>
+                  <span style={{ fontSize: 11, color: '#a0a0a0' }}>
                     {record.delivered_count}/{record.total_recipients}
                   </span>
                 </Space>

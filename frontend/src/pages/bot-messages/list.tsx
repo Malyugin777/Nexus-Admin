@@ -151,7 +151,7 @@ export const BotMessageList = () => {
           render={(value: string) => (
             <Space direction="vertical" size={0}>
               <Tag color="blue">{value}</Tag>
-              <span style={{ fontSize: 12, color: '#888' }}>
+              <span style={{ fontSize: 12, color: '#a0a0a0' }}>
                 {messageKeyLabels[value] || value}
               </span>
             </Space>

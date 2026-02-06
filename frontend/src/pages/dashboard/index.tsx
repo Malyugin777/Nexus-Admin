@@ -338,7 +338,7 @@ export const Dashboard = () => {
             ]}
           />
           {stats?.version && (
-            <span style={{ color: '#888', fontSize: '14px' }}>v{stats.version}</span>
+            <span style={{ color: '#a0a0a0', fontSize: '14px' }}>v{stats.version}</span>
           )}
         </div>
       </div>
@@ -477,17 +477,17 @@ export const Dashboard = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1890ff' }}></span>
-                        <span style={{ color: '#888', flex: 1 }}>Скачиваний</span>
+                        <span style={{ color: '#a0a0a0', flex: 1 }}>Скачиваний</span>
                         <span style={{ color: '#1890ff', fontWeight: 'bold', fontSize: '18px' }}>{flyerStats!.downloads_today}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#faad14' }}></span>
-                        <span style={{ color: '#888', flex: 1 }}>Предложено подписаться</span>
+                        <span style={{ color: '#a0a0a0', flex: 1 }}>Предложено подписаться</span>
                         <span style={{ color: '#faad14', fontWeight: 'bold', fontSize: '18px' }}>{flyerStats!.ad_offers_today}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#52c41a' }}></span>
-                        <span style={{ color: '#888', flex: 1 }}>Подписалось</span>
+                        <span style={{ color: '#a0a0a0', flex: 1 }}>Подписалось</span>
                         <span style={{ color: '#52c41a', fontWeight: 'bold', fontSize: '18px' }}>{flyerStats!.subscribed_today}</span>
                       </div>
                     </div>
@@ -501,17 +501,17 @@ export const Dashboard = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1890ff' }}></span>
-                        <span style={{ color: '#888', flex: 1 }}>Скачиваний</span>
+                        <span style={{ color: '#a0a0a0', flex: 1 }}>Скачиваний</span>
                         <span style={{ color: '#1890ff', fontWeight: 'bold', fontSize: '18px' }}>{flyerStats!.downloads_total}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#faad14' }}></span>
-                        <span style={{ color: '#888', flex: 1 }}>Предложено подписаться</span>
+                        <span style={{ color: '#a0a0a0', flex: 1 }}>Предложено подписаться</span>
                         <span style={{ color: '#faad14', fontWeight: 'bold', fontSize: '18px' }}>{flyerStats!.ad_offers_total}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#52c41a' }}></span>
-                        <span style={{ color: '#888', flex: 1 }}>Подписалось</span>
+                        <span style={{ color: '#a0a0a0', flex: 1 }}>Подписалось</span>
                         <span style={{ color: '#52c41a', fontWeight: 'bold', fontSize: '18px' }}>{flyerStats!.subscribed_total}</span>
                       </div>
                     </div>
@@ -547,7 +547,7 @@ export const Dashboard = () => {
             {pieData.length > 0 ? (
               <Pie {...pieConfig} height={300} />
             ) : (
-              <div style={{ textAlign: 'center', padding: '50px', color: '#888' }}>
+              <div style={{ textAlign: 'center', padding: '50px', color: '#a0a0a0' }}>
                 Нет данных
               </div>
             )}
