@@ -17,6 +17,8 @@ interface Bot {
   settings: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+  users_count: number;
+  downloads_count: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -52,6 +54,12 @@ export const BotShow = () => {
             color={statusColors[record?.status || 'disabled']}
             value={record?.status?.toUpperCase()}
           />
+        </Descriptions.Item>
+        <Descriptions.Item label="Пользователей">
+          <span style={{ color: '#1890ff', fontWeight: 500 }}>{record?.users_count || 0}</span>
+        </Descriptions.Item>
+        <Descriptions.Item label="Загрузок">
+          <span style={{ color: '#52c41a', fontWeight: 500 }}>{record?.downloads_count || 0}</span>
         </Descriptions.Item>
         <Descriptions.Item label="Token Hash">
           <Space>
