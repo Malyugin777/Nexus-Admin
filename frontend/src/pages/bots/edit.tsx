@@ -25,7 +25,7 @@ export const BotEdit = () => {
 
         <Form.Item
           label="Bot Username"
-          name="bot_username"
+          name="username"
           extra="Without @ symbol"
         >
           <Input placeholder="my_awesome_bot" />
@@ -43,6 +43,7 @@ export const BotEdit = () => {
           <Select
             options={[
               { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
               { label: 'Paused', value: 'paused' },
               { label: 'Maintenance', value: 'maintenance' },
               { label: 'Disabled', value: 'disabled' },

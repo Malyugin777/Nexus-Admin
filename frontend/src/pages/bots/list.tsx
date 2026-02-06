@@ -6,6 +6,7 @@ import {
   DeleteButton,
   TagField,
 } from '@refinedev/antd';
+import { useCustomMutation } from '@refinedev/core';
 import { Table, Space, Input, Select, Button, Tooltip, message } from 'antd';
 import {
   SearchOutlined,
@@ -30,6 +31,7 @@ interface Bot {
 
 const statusColors: Record<string, string> = {
   active: 'green',
+  inactive: 'default',
   paused: 'orange',
   maintenance: 'blue',
   disabled: 'red',
@@ -51,13 +53,19 @@ export const BotList = () => {
     },
   });
 
-  const handleRestart = async (id: number) => {
-    try {
-      // This would call the restart endpoint
-      message.success(t('bots.restartInitiated'));
-    } catch {
-      message.error(t('bots.restartFailed'));
-    }
+  const { mutate: restartBot, isLoading: isRestarting } = useCustomMutation();
+
+  const handleRestart = (id: number) => {
+    restartBot(
+      { url: `/bots/${id}/restart`, method: 'post', values: {} },
+      {
+        onSuccess: () => {
+          message.success(t('bots.restartInitiated'));
+          tableQueryResult.refetch();
+        },
+        onError: () => message.error(t('bots.restartFailed')),
+      }
+    );
   };
 
   return (
@@ -80,6 +88,7 @@ export const BotList = () => {
           onChange={setStatusFilter}
           options={[
             { label: t('bots.status.active'), value: 'active' },
+            { label: t('bots.status.inactive'), value: 'inactive' },
             { label: t('bots.status.paused'), value: 'paused' },
             { label: t('bots.status.maintenance'), value: 'maintenance' },
             { label: t('bots.status.disabled'), value: 'disabled' },
@@ -133,7 +142,7 @@ export const BotList = () => {
                 <span>{value.substring(0, 8)}...</span>
               </Space>
             </Tooltip>
-          ) : <span style={{ color: '#999' }}>—</span>}
+          ) : <span style={{ color: '#a0a0a0' }}>—</span>}
         />
         <Table.Column
           title={t('common.actions')}
@@ -145,6 +154,7 @@ export const BotList = () => {
                 <Button
                   size="small"
                   icon={<ReloadOutlined />}
+                  loading={isRestarting}
                   onClick={() => handleRestart(record.id)}
                 />
               </Tooltip>

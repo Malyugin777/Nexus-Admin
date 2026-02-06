@@ -9,11 +9,11 @@ const { Title } = Typography;
 interface Bot {
   id: number;
   name: string;
-  bot_username: string | null;
+  username: string | null;
   token_hash: string;
   webhook_url: string | null;
   description: string | null;
-  status: 'active' | 'paused' | 'maintenance' | 'disabled';
+  status: 'active' | 'inactive' | 'paused' | 'maintenance' | 'disabled';
   settings: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -21,6 +21,7 @@ interface Bot {
 
 const statusColors: Record<string, string> = {
   active: 'green',
+  inactive: 'default',
   paused: 'orange',
   maintenance: 'blue',
   disabled: 'red',
@@ -44,7 +45,7 @@ export const BotShow = () => {
         <Descriptions.Item label="ID">{record?.id}</Descriptions.Item>
         <Descriptions.Item label="Name">{record?.name}</Descriptions.Item>
         <Descriptions.Item label="Username">
-          {record?.bot_username ? `@${record.bot_username}` : '-'}
+          {record?.username ? `@${record.username}` : '-'}
         </Descriptions.Item>
         <Descriptions.Item label="Status">
           <TagField
